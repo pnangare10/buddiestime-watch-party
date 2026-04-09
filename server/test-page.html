@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Watch Party — Browser Test</title>
+  <style>
+    body { font-family: monospace; background: #111; color: #eee; padding: 20px; }
+    h2   { color: #1a9; margin: 0 0 12px; }
+    .controls { display: flex; gap: 8px; margin-bottom: 12px; }
+    button { background: #1a9; color: #fff; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 14px; }
+    button:disabled { background: #444; cursor: default; }
+    button.danger { background: #a33; }
+    #badge { display: inline-block; padding: 5px 14px; border-radius: 20px; font-weight: bold;
+             background: #333; color: #888; margin-bottom: 12px; }
+    #video-controls { display: flex; gap: 8px; margin-bottom: 12px; }
+    #time-display { color: #1a9; font-size: 18px; margin-bottom: 8px; }
+    #log { background: #1a1a1a; border: 1px solid #333; border-radius: 6px; padding: 10px;
+           height: 220px; overflow-y: auto; font-size: 12px; }
+    #log li { list-style: none; padding: 2px 0; border-bottom: 1px solid #222; }
+    .sent     { color: #4af; }
+    .received { color: #fa4; }
+    .info     { color: #888; }
+    .synced   { color: #4f4; }
+  </style>
+</head>
+<body>
+  <h2>Watch Party — Test Page</h2>
+
+  <div id="badge">Not connected</div>
+
+  <div class="controls">
+    <button id="btn-host">Join as Host</button>
+    <button id="btn-guest">Join as Guest</button>
+    <button id="btn-leave" class="danger" disabled>Leave</button>
+  </div>
+
+  <!-- Simulated video controls (no real video source needed) -->
+  <div id="video-controls">
+    <button id="btn-play"  disabled>▶ Play</button>
+    <button id="btn-pause" disabled>⏸ Pause</button>
+    <button id="btn-seek"  disabled>⏩ Seek to 60s</button>
+  </div>
+
+  <div id="time-display">currentTime: 0.00s | paused: true</div>
+
+  <!-- Hidden video element — content script target -->
+  <video id="v" style="display:none"></video>
+
+  <ul id="log"></ul>
+
+  <script>
+    const SERVER = 'ws://localhost:8080';
+    const ROOM   = 'playwright-test-room';
+    const DRIFT  = 3;
+
+    const video = document.getElementById('v');
+    // Give it a fake duration so currentTime can be set freely
+    Object.defineProperty(video, 'duration', { value: 3600, configurable: true });
+
+    let ws = null, role = null, isSyncing = false;
+
+    // ── Logging ────────────────────────────────────────────────────────────────
+    function addLog(cls, msg) {
+      const li = document.createElement('li');
+      li.className = cls;
+      li.textContent = new Date().toISOString().slice(11,23) + '  ' + msg;
+      li.setAttribute('data-entry', msg);
+      const ul = document.getElementById('log');
+      ul.appendChild(li);
+      ul.scrollTop = ul.scrollHeight;
+    }
+
+    function setBadge(text, color) {
+      const b = document.getElementById('badge');
+      b.textContent = text;
+      b.style.background = color || '#333';
+      b.style.color = '#fff';
+      b.setAttribute('data-badge', text);
+    }
+
+    function updateTimeDisplay() {
+      document.getElementById('time-display').textContent =
+        'currentTime: ' + video.currentTime.toFixed(2) + 's | paused: ' + video.paused;
+    }
+
+    // ── Named video event handlers ─────────────────────────────────────────────
+    function onVideoPlay()  {
+      if (isSyncing || role !== 'host') return;
+      const msg = { type: 'play',  time: video.currentTime };
+      send(msg); addLog('sent', 'play  t=' + video.currentTime.toFixed(2));
+    }
+    function onVideoPause() {
+      if (isSyncing || role !== 'host') return;
+      const msg = { type: 'pause', time: video.currentTime };
+      send(msg); addLog('sent', 'pause t=' + video.currentTime.toFixed(2));
+    }
+    function onVideoSeek()  {
+      if (isSyncing || role !== 'host') return;
+      const msg = { type: 'seek',  time: video.currentTime };
+      send(msg); addLog('sent', 'seek  t=' + video.currentTime.toFixed(2));
+    }
+
+    function attachVideoListeners() {
+      video.removeEventListener('play',   onVideoPlay);
+      video.removeEventListener('pause',  onVideoPause);
+      video.removeEventListener('seeked', onVideoSeek);
+      video.addEventListener('play',   onVideoPlay);
+      video.addEventListener('pause',  onVideoPause);
+      video.addEventListener('seeked', onVideoSeek);
+    }
+
+    // ── WebSocket ──────────────────────────────────────────────────────────────
+    function connect(r) {
+      const clientId = r + '-' + Math.random().toString(36).slice(2, 7);
+      setBadge('Connecting…', '#666');
+      ws = new WebSocket(SERVER);
+
+      ws.onopen = () => {
+        ws.send(JSON.stringify({ type: 'join', roomId: ROOM, clientId }));
+        addLog('info', 'WS open → joining room "' + ROOM + '" as ' + r);
+      };
+      ws.onclose = () => { setBadge('Disconnected', '#a33'); addLog('info', 'WS closed'); };
+      ws.onerror = () => { setBadge('Error', '#a33');        addLog('info', 'WS error'); };
+
+      ws.onmessage = ({ data }) => {
+        let msg; try { msg = JSON.parse(data); } catch { return; }
+        handleMessage(msg);
+      };
+    }
+
+    function handleMessage(msg) {
+      addLog('received', JSON.stringify(msg));
+
+      if (msg.type === 'joined') {
+        role = msg.role;
+        setBadge(role === 'host' ? '● Host' : '● Guest', role === 'host' ? '#1a7' : '#17a');
+        attachVideoListeners();
+        document.getElementById('btn-leave').disabled = false;
+        if (role === 'host') {
+          document.getElementById('btn-play').disabled  = false;
+          document.getElementById('btn-pause').disabled = false;
+          document.getElementById('btn-seek').disabled  = false;
+        }
+        addLog('info', 'Joined as ' + role);
+        return;
+      }
+
+      if (msg.type === 'sync-request' && role === 'host') {
+        const reply = { type: 'sync-response', time: video.currentTime, paused: video.paused };
+        send(reply);
+        addLog('sent', 'sync-response t=' + video.currentTime.toFixed(2) + ' paused=' + video.paused);
+        return;
+      }
+
+      if (msg.type === 'sync-response' && role === 'guest') {
+        applySync(msg.time, msg.paused);
+        return;
+      }
+
+      if (role === 'guest') {
+        if (msg.type === 'play')  applySync(msg.time, false);
+        if (msg.type === 'pause') applySync(msg.time, true);
+        if (msg.type === 'seek')  applySync(msg.time, video.paused);
+      }
+    }
+
+    function applySync(time, paused) {
+      isSyncing = true;
+      if (Math.abs(video.currentTime - time) > DRIFT) video.currentTime = time;
+      // fire the synthetic paused state
+      if (paused) video.dispatchEvent(new Event('pause'));
+      else        video.dispatchEvent(new Event('play'));
+      updateTimeDisplay();
+      addLog('synced', 'applied → t=' + time.toFixed(2) + ' paused=' + paused);
+      document.getElementById('badge').setAttribute('data-synced', 'true');
+      setTimeout(() => { isSyncing = false; }, 300);
+    }
+
+    function send(msg) {
+      if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg));
+    }
+
+    function disconnect() {
+      video.removeEventListener('play',   onVideoPlay);
+      video.removeEventListener('pause',  onVideoPause);
+      video.removeEventListener('seeked', onVideoSeek);
+      if (ws) { ws.close(); ws = null; }
+      role = null; isSyncing = false;
+      setBadge('Not connected', '#333');
+      ['btn-play','btn-pause','btn-seek','btn-leave'].forEach(id =>
+        document.getElementById(id).disabled = true);
+      updateTimeDisplay();
+    }
+
+    // ── Button wiring ──────────────────────────────────────────────────────────
+    document.getElementById('btn-host').onclick  = () => connect('host');
+    document.getElementById('btn-guest').onclick = () => connect('guest');
+    document.getElementById('btn-leave').onclick = disconnect;
+
+    document.getElementById('btn-play').onclick = () => {
+      video.dispatchEvent(new Event('play'));
+      updateTimeDisplay();
+    };
+    document.getElementById('btn-pause').onclick = () => {
+      video.dispatchEvent(new Event('pause'));
+      updateTimeDisplay();
+    };
+    document.getElementById('btn-seek').onclick = () => {
+      video.currentTime = 60;
+      video.dispatchEvent(new Event('seeked'));
+      updateTimeDisplay();
+    };
+  </script>
+</body>
+</html>

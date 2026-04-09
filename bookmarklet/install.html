@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Watch Party — Phone Setup</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0f0f1a;
+      color: #e8e8f0;
+      min-height: 100vh;
+      padding: 24px 20px;
+    }
+    h1 { font-size: 22px; font-weight: 700; color: #fff; margin-bottom: 6px; }
+    .sub { font-size: 14px; color: #888; margin-bottom: 28px; }
+
+    .step {
+      background: #1a1a2e;
+      border: 1px solid #2a2a40;
+      border-radius: 10px;
+      padding: 16px;
+      margin-bottom: 14px;
+    }
+    .step-num {
+      display: inline-block;
+      background: #17a;
+      color: #fff;
+      font-size: 12px;
+      font-weight: 700;
+      border-radius: 50%;
+      width: 22px; height: 22px;
+      text-align: center;
+      line-height: 22px;
+      margin-right: 8px;
+    }
+    .step-title { font-size: 15px; font-weight: 600; margin-bottom: 8px; }
+    .step p { font-size: 13px; color: #aaa; line-height: 1.6; }
+
+    .bookmarklet-link {
+      display: block;
+      background: #1a9e6e;
+      color: #fff;
+      font-size: 15px;
+      font-weight: 700;
+      text-align: center;
+      padding: 14px;
+      border-radius: 10px;
+      text-decoration: none;
+      margin: 20px 0 10px;
+      box-shadow: 0 2px 12px rgba(26,158,110,.4);
+    }
+    .drag-hint {
+      font-size: 12px;
+      color: #666;
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .room-info {
+      background: #1a1a2e;
+      border: 1px solid #2a2a40;
+      border-radius: 8px;
+      padding: 12px 16px;
+      font-size: 13px;
+      color: #aaa;
+      margin-bottom: 20px;
+    }
+    .room-info strong { color: #eee; }
+
+    .tip {
+      font-size: 12px;
+      color: #666;
+      background: #111;
+      border-radius: 8px;
+      padding: 10px 14px;
+      line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+  <h1>Watch Party</h1>
+  <p class="sub">Phone setup — takes 2 minutes</p>
+
+  <div id="room-info-box" class="room-info hidden">
+    Room: <strong id="room-display"></strong>
+  </div>
+
+  <div class="step">
+    <div class="step-title"><span class="step-num">1</span>Save the bookmarklet</div>
+    <p>On <strong>desktop</strong>: drag the button below to your bookmarks bar.<br>
+       On <strong>phone</strong>: tap &amp; hold the button → "Add to bookmarks" (Chrome) or "Add Bookmark" (Safari).</p>
+  </div>
+
+  <a id="bm-link" class="bookmarklet-link" href="#">▶ Watch Party — Tap &amp; Hold to Save</a>
+  <p class="drag-hint">Drag to bookmarks bar (desktop) · Long-press to bookmark (phone)</p>
+
+  <div class="step">
+    <div class="step-title"><span class="step-num">2</span>Open Hotstar in this browser</div>
+    <p>Go to <strong>hotstar.com</strong>, find the same movie or show, and start it.</p>
+  </div>
+
+  <div class="step">
+    <div class="step-title"><span class="step-num">3</span>Tap the bookmark</div>
+    <p>Tap the "Watch Party" bookmark you just saved. A green badge will appear on screen when you're synced.</p>
+  </div>
+
+  <div class="tip">
+    The badge shows your role: <strong>Host</strong> controls playback; <strong>Guest</strong> follows automatically.
+    If you're joining an existing party, you'll be a Guest.
+  </div>
+
+  <script>
+    const params = new URLSearchParams(location.search);
+    const room   = params.get('room')   || '';
+    const server = params.get('server') || 'ws://localhost:8080';
+
+    // Show room info if provided
+    if (room) {
+      document.getElementById('room-display').textContent = room;
+      document.getElementById('room-info-box').classList.remove('hidden');
+    }
+
+    // Build bookmarklet href with room + server pre-filled
+    const bmCode = document.getElementById('bm-link');
+    const base = `javascript:(function(){if(window.__hwp){alert('Watch Party already running');return;}window.__hwp=true;const p=new URLSearchParams(location.search);const S=${JSON.stringify(server)};const R=${JSON.stringify(room||null)};const roomId=R||p.get('hwpRoom')||prompt('Room ID:');if(!S||!roomId){window.__hwp=false;return;}const D=3;let ws,video,role,sync=false;const b=document.createElement('div');b.style.cssText='position:fixed;bottom:16px;right:16px;z-index:999999;padding:7px 16px;border-radius:20px;font:bold 13px/1 sans-serif;color:#fff;box-shadow:0 2px 8px rgba(0,0,0,.5);background:#888;';b.textContent='● Connecting…';document.body.appendChild(b);function sb(t,c){b.textContent='● '+t;b.style.background=c;}ws=new WebSocket(S);const id='bm-'+Math.random().toString(36).slice(2,7);ws.onopen=()=>ws.send(JSON.stringify({type:'join',roomId:roomId,clientId:id}));ws.onclose=()=>sb('Disconnected','#c00');ws.onerror=()=>sb('Error','#c00');ws.onmessage=({data})=>{let m;try{m=JSON.parse(data);}catch{return;}if(m.type==='joined'){role=m.role;sb(role==='host'?'Host':'Guest — Synced',role==='host'?'#1a7':'#17a');wfv(v=>{video=v;if(role==='host')al();});return;}if(!video)return;if(m.type==='sync-request'&&role==='host'){snd({type:'sync-response',time:video.currentTime,paused:video.paused});return;}if(m.type==='sync-response'&&role==='guest'){as(m.time,m.paused);return;}if(role==='guest'){if(m.type==='play')as(m.time,false);if(m.type==='pause')as(m.time,true);if(m.type==='seek')as(m.time,video.paused);}};function al(){video.addEventListener('play',()=>{if(!sync)snd({type:'play',time:video.currentTime});});video.addEventListener('pause',()=>{if(!sync)snd({type:'pause',time:video.currentTime});});video.addEventListener('seeked',()=>{if(!sync)snd({type:'seek',time:video.currentTime});});}function as(t,pa){sync=true;if(Math.abs(video.currentTime-t)>D)video.currentTime=t;if(pa&&!video.paused)video.pause();else if(!pa&&video.paused)video.play().catch(()=>{});setTimeout(()=>{sync=false;},300);}function snd(m){if(ws.readyState===1)ws.send(JSON.stringify(m));}function wfv(cb){const t=setInterval(()=>{const v=document.querySelector('video');if(v){clearInterval(t);cb(v);}},500);}})();`;
+
+    bmCode.href = base;
+  </script>
+</body>
+</html>

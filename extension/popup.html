@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hotstar Watch Party</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>Watch Party</h1>
+
+    <div id="view-setup">
+      <label>Server URL
+        <input id="server-url" type="text" placeholder="wss://your-server.onrender.com" />
+      </label>
+      <label>Room ID
+        <input id="room-id" type="text" placeholder="e.g. movie-night" />
+      </label>
+      <div class="row">
+        <button id="btn-host">Start Party (Host)</button>
+        <button id="btn-guest">Join Party (Guest)</button>
+      </div>
+    </div>
+
+    <div id="view-connected" class="hidden">
+      <div id="status-line"></div>
+      <div id="room-info"></div>
+      <div id="share-section" class="hidden">
+        <p class="label">Share this link with your partner:</p>
+        <div class="share-box">
+          <input id="share-url" type="text" readonly />
+          <button id="btn-copy">Copy</button>
+        </div>
+        <div id="bookmarklet-hint" class="hint">
+          Partner on phone? Have them open the <strong>install page</strong> to get the bookmarklet.
+        </div>
+      </div>
+      <button id="btn-leave">Leave Party</button>
+    </div>
+
+    <div id="msg" class="msg hidden"></div>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>

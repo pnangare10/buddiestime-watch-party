@@ -1,0 +1,17 @@
+{
+  "manifest_version": 3,
+  "name": "Hotstar Watch Party",
+  "version": "1.0.0",
+  "description": "Sync Hotstar playback with a partner in real time",
+  "permissions": ["storage", "tabs"],
+  "content_scripts": [
+    {
+      "matches": ["*://*.hotstar.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html"
+  }
+}
