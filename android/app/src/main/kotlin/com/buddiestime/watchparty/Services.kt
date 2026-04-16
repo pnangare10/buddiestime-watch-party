@@ -7,7 +7,11 @@ object HotstarService : StreamingService {
     override val userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
             "AppleWebKit/537.36 (KHTML, like Gecko) " +
             "Chrome/124.0.0.0 Safari/537.36"
-    override val headersOverride = mapOf("X-Requested-With" to "")
+    override val headersOverride = mapOf(
+        "X-Requested-With" to "",
+        // Ensure Hotstar knows we're in India for regional content
+        "Accept-Language" to "en-IN,en;q=0.9"
+    )
 }
 
 object NetflixService : StreamingService {
@@ -17,7 +21,12 @@ object NetflixService : StreamingService {
     override val userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
             "AppleWebKit/537.36 (KHTML, like Gecko) " +
             "Chrome/124.0.0.0 Safari/537.36"
-    override val headersOverride = mapOf("X-Requested-With" to "")
+    override val headersOverride = mapOf(
+        "X-Requested-With" to "",
+        // Netflix uses Accept-Language to determine region availability
+        // Set to en-IN to match Indian region (same as your browser)
+        "Accept-Language" to "en-IN,en;q=0.9"
+    )
 }
 
 fun getStreamingService(name: String): StreamingService = when (name.lowercase()) {
