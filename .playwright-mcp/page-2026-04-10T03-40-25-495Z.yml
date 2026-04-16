@@ -1,0 +1,583 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - heading "JioHotstar" [level=1] [ref=e4]
+    - generic [ref=e6]:
+      - img "JioHotstar" [ref=e11]
+      - complementary [ref=e13]:
+        - navigation [ref=e14]:
+          - tab "Home" [selected] [ref=e16] [cursor=pointer]:
+            - button [ref=e17]:
+              - generic [ref=e19]: 
+          - tab "Search" [ref=e21] [cursor=pointer]:
+            - button [ref=e22]:
+              - generic [ref=e24]: 
+          - tab "TV" [ref=e26] [cursor=pointer]:
+            - button [ref=e27]:
+              - generic [ref=e29]: 
+          - tab "Movies" [ref=e31] [cursor=pointer]:
+            - button [ref=e32]:
+              - generic [ref=e34]: 
+          - tab "Sports" [ref=e36] [cursor=pointer]:
+            - button [ref=e37]:
+              - generic [ref=e39]: 
+          - tab "Sparks" [ref=e41] [cursor=pointer]:
+            - button [ref=e42]:
+              - generic [ref=e44]: 
+          - tab "Categories" [ref=e46] [cursor=pointer]:
+            - button [ref=e47]:
+              - generic [ref=e49]: 
+          - tab "My Space" [ref=e51] [cursor=pointer]:
+            - button "Avatar" [ref=e52]:
+              - img "Avatar" [ref=e55]
+      - main [ref=e56]:
+        - heading "Jio Hotstar Home" [level=1] [ref=e57]
+        - generic [ref=e61]:
+          - generic [ref=e62]:
+            - paragraph [ref=e63]: Get premium benefits at ₹150 Off
+            - paragraph [ref=e64]: Unlock 4 devices, ad-free entertainment & more
+          - link "Upgrade" [ref=e67] [cursor=pointer]:
+            - /url: /in/paywall?source=default
+            - button "Upgrade" [ref=e70]:
+              - generic [ref=e72]: Upgrade
+          - button [ref=e74] [cursor=pointer]:
+            - generic [ref=e76]: 
+        - generic [ref=e80]:
+          - generic [ref=e84]:
+            - generic:
+              - link:
+                - /url: https://service.hotstar.com/shifu/redirection/api/v1/landing?id-type=ad&ad-id=AD1775741342428894&cp-ad-clicktimer=[cp.ad.clicktimer]&cp-timestamp=[cp.timestamp]&cp-device_orientation=[cp.device_orientation]&shifu-request-device_platform=WEB&shifu-request-user_id=251223-611e42-985ea-33d2f7&shifu-request-device_network_data=4G&shifu-prediction-model_id=DEFAULT%2CNO_MODEL%2CNO_MODEL&shifu-ad-creative-aspect_ratio=96%3A41&shifu-user-ifa=&shifu-campaign-id=CA177461226864306&shifu-request-lat=&shifu-request-state=MH&shifu-break-total=1&shifu-break-slot_count=1&shifu-content-parental_rating=&shifu-ad-duration=0&shifu-request-content_language=&shifu-content-type=&shifu-request-long=&shifu-request-content_id=&shifu-request-custom_tags=&shifu-request-device_app_version=26.03.06.0&shifu-adset-name=IPL2026_PHD_USA_OpenAI_VOD_Billboard_Handheld_PanIndia_West_MMkt&shifu-request-user_lat=false&shifu-content-episode_number=&shifu-request-request_id=87a603-59110a-eeebe-894265405014&shifu-ad-name=CHATGPT_RCB_01_BILLBOARD_MOB_1032x444_ENG_StaticBillboard_100426&shifu-request-device_brand=&shifu-request-device_os_version=10&shifu-serving-version=v1&shifu-ad-companion_type=Undefined&shifu-content-title=&shifu-content-genre=&shifu-break-id=87a603-59110a-eeebe-894265405014--1&shifu-request-is_live=&shifu-user-ifa_type=&shifu-request-user_account_type=SUBSCRIBED_HOTSTARSUPER&shifu-break-start_time=0&shifu-content-show_name=&shifu-content-provider=&shifu-impression_id=87a603-59110a-eeebe-894265405014-9296927&shifu-ad-format=IMAGE&shifu-request-p_id=13fee312fa1a407196dbe955eb6b3f45&shifu-break-no=-1&shifu-request-device_id=251223-611e42-985ea-33d2f7&shifu-request-dw_p_id=aa3f5c3370078c9665e2d9872c67e43cb6510eb552534cb637fabfe3df3499cd&shifu-ad-id=AD1775741342428894&shifu-ad-placement=BILLBOARD_HOME&shifu-content-studio=&shifu-content-season_number=&shifu-request-prefetch=&shifu-adset-id=AT1774613574204157&shifu-request-city=PUNE&shifu-request-device_model=&shifu-server_time_id=29596540&shifu-content-channel_name=&shifu-request-country=IN&shifu-request-device_carrier=&shifu-ad-slot_index=&shifu-user-adv_user_id=251223-611e42-985ea-33d2f7&shifu-request-user_segment=SSAI%3A%3AA_U%3AD_NA%3AG_U%3AS_MH%3AM_PUN%3AN_NA%2CB_C_PUNE%2CB_P_410501%2CB_S_MH%2CCOUNTRY_IN%2CSTATE_MH%2CCITY_PUNE%2CPIN_410501%2CDN72%2CPHT%2CR_F3599&shifu-campaign-name=YM_IPL2026_PHD_USA_OpenAI_VOD_Billboard_Handheld_PanIndia_West_MMkt&shifu-break-slot_filled=1
+                - img [ref=e85] [cursor=pointer]
+          - generic [ref=e86]:
+            - generic [ref=e87]:
+              - generic [ref=e89]:
+                - img [ref=e91]
+                - generic [ref=e92]:
+                  - generic [ref=e93]:
+                    - generic [ref=e94]: Advertisement
+                    - generic [ref=e95]: Ad
+                    - paragraph [ref=e96]: ChatGPT
+                  - paragraph [ref=e97]: Answers & Inspiration
+              - paragraph [ref=e99]: Helps you get answers, find inspiration, and be more productive.
+            - link "Try Now" [ref=e101] [cursor=pointer]:
+              - /url: https://service.hotstar.com/shifu/redirection/api/v1/landing?id-type=ad&ad-id=AD1775741342428894&cp-ad-clicktimer=[cp.ad.clicktimer]&cp-timestamp=[cp.timestamp]&cp-device_orientation=[cp.device_orientation]&shifu-request-device_platform=WEB&shifu-request-user_id=251223-611e42-985ea-33d2f7&shifu-request-device_network_data=4G&shifu-prediction-model_id=DEFAULT%2CNO_MODEL%2CNO_MODEL&shifu-ad-creative-aspect_ratio=96%3A41&shifu-user-ifa=&shifu-campaign-id=CA177461226864306&shifu-request-lat=&shifu-request-state=MH&shifu-break-total=1&shifu-break-slot_count=1&shifu-content-parental_rating=&shifu-ad-duration=0&shifu-request-content_language=&shifu-content-type=&shifu-request-long=&shifu-request-content_id=&shifu-request-custom_tags=&shifu-request-device_app_version=26.03.06.0&shifu-adset-name=IPL2026_PHD_USA_OpenAI_VOD_Billboard_Handheld_PanIndia_West_MMkt&shifu-request-user_lat=false&shifu-content-episode_number=&shifu-request-request_id=87a603-59110a-eeebe-894265405014&shifu-ad-name=CHATGPT_RCB_01_BILLBOARD_MOB_1032x444_ENG_StaticBillboard_100426&shifu-request-device_brand=&shifu-request-device_os_version=10&shifu-serving-version=v1&shifu-ad-companion_type=Undefined&shifu-content-title=&shifu-content-genre=&shifu-break-id=87a603-59110a-eeebe-894265405014--1&shifu-request-is_live=&shifu-user-ifa_type=&shifu-request-user_account_type=SUBSCRIBED_HOTSTARSUPER&shifu-break-start_time=0&shifu-content-show_name=&shifu-content-provider=&shifu-impression_id=87a603-59110a-eeebe-894265405014-9296927&shifu-ad-format=IMAGE&shifu-request-p_id=13fee312fa1a407196dbe955eb6b3f45&shifu-break-no=-1&shifu-request-device_id=251223-611e42-985ea-33d2f7&shifu-request-dw_p_id=aa3f5c3370078c9665e2d9872c67e43cb6510eb552534cb637fabfe3df3499cd&shifu-ad-id=AD1775741342428894&shifu-ad-placement=BILLBOARD_HOME&shifu-content-studio=&shifu-content-season_number=&shifu-request-prefetch=&shifu-adset-id=AT1774613574204157&shifu-request-city=PUNE&shifu-request-device_model=&shifu-server_time_id=29596540&shifu-content-channel_name=&shifu-request-country=IN&shifu-request-device_carrier=&shifu-ad-slot_index=&shifu-user-adv_user_id=251223-611e42-985ea-33d2f7&shifu-request-user_segment=SSAI%3A%3AA_U%3AD_NA%3AG_U%3AS_MH%3AM_PUN%3AN_NA%2CB_C_PUNE%2CB_P_410501%2CB_S_MH%2CCOUNTRY_IN%2CSTATE_MH%2CCITY_PUNE%2CPIN_410501%2CDN72%2CPHT%2CR_F3599&shifu-campaign-name=YM_IPL2026_PHD_USA_OpenAI_VOD_Billboard_Handheld_PanIndia_West_MMkt&shifu-break-slot_filled=1
+              - button "Try Now" [ref=e103]:
+                - generic [ref=e104]: Try Now
+        - generic [ref=e107]:
+          - img [ref=e113]
+          - region "Featured Content" [ref=e115] [cursor=pointer]:
+            - generic [ref=e116]:
+              - generic [ref=e121]:
+                - generic [ref=e122]:
+                  - heading "Thaai Kizhavi" [level=2] [ref=e124]:
+                    - img "Thaai Kizhavi" [ref=e128]
+                  - generic "2026, U/A 13+, 2h 22m, 5 Languages" [ref=e132]:
+                    - generic [ref=e134]: "2026"
+                    - generic [ref=e135]:
+                      - generic [ref=e138]: 
+                      - generic [ref=e139]: U/A 13+
+                    - generic [ref=e140]:
+                      - generic [ref=e143]: 
+                      - generic [ref=e144]: 2h 22m
+                    - generic [ref=e145]:
+                      - generic [ref=e148]: 
+                      - generic [ref=e149]: 5 Languages
+                  - generic:   
+                - generic [ref=e151]:
+                  - link "Watch Now" [ref=e154]:
+                    - /url: /in/movies/thaai-kizhavi/1271616921/watch
+                    - button "Watch Now" [ref=e155]:
+                      - generic: 
+                      - generic [ref=e157]: Watch Now
+                  - button "Add to watchlist" [ref=e161]:
+                    - generic [ref=e163]: 
+              - generic [ref=e166]:
+                - list [ref=e167]:
+                  - listitem [ref=e168]:
+                    - button "Thaai Kizhavi" [ref=e169]:
+                      - img "Thaai Kizhavi" [ref=e172]
+                  - listitem [ref=e173]:
+                    - button "MTV Splitsvilla" [ref=e174]:
+                      - img "MTV Splitsvilla" [ref=e177]
+                  - listitem [ref=e178]:
+                    - 'button "KKR vs LSG: Highlights" [ref=e179]':
+                      - 'img "KKR vs LSG: Highlights" [ref=e182]'
+                  - listitem [ref=e183]:
+                    - button [ref=e184]:
+                      - img [ref=e187]
+                  - listitem [ref=e188]:
+                    - button [ref=e189]:
+                      - img [ref=e192]
+                - button "" [ref=e193]
+        - generic [ref=e197]:
+          - link "Continue Watching for Pranesh" [ref=e200] [cursor=pointer]:
+            - /url: /in/browse/continue-watching/continue-watching/p13n-cw
+            - heading "Continue Watching for Pranesh" [level=2] [ref=e203]
+          - generic [ref=e205]:
+            - generic [ref=e206]:
+              - link "Mahabharat, Show, Season 13, Episode 4, Next Episode" [ref=e213] [cursor=pointer]:
+                - /url: /in/shows/mahabharat/435/bheem-kills-jarasandh/1000011907/watch
+                - generic [ref=e214]:
+                  - generic [ref=e215]:
+                    - img "S13 E4 • 20 Mar" [ref=e219]
+                    - button [ref=e224]:
+                      - generic [ref=e226]: 
+                    - generic [ref=e228]:
+                      - generic [ref=e230]: 
+                      - generic [ref=e233]:
+                        - img [ref=e234]
+                        - generic:
+                          - paragraph
+                  - generic [ref=e235]:
+                    - generic "S13 E4 • 20 Mar" [ref=e237]
+                    - generic "Next Episode" [ref=e239]
+                    - button "View More Details" [ref=e242]:
+                      - generic [ref=e243]: View More Details
+                      - generic [ref=e245]: 
+              - 'link "Mahabharat: Ek Dharmayudh, Show, Season 1, Episode 2, 7 minutes left" [ref=e252] [cursor=pointer]':
+                - /url: /in/shows/mahabharat-ek-dharmayudh/1271499005/an-impossible-choice/1271500429/watch
+                - generic [ref=e253]:
+                  - generic [ref=e254]:
+                    - img "S1 E2" [ref=e258]
+                    - button [ref=e263]:
+                      - generic [ref=e265]: 
+                    - generic [ref=e267]:
+                      - generic [ref=e269]: 
+                      - generic [ref=e272]:
+                        - img [ref=e273]
+                        - generic:
+                          - paragraph
+                  - generic [ref=e277]:
+                    - generic "S1 E2" [ref=e279]
+                    - generic "7m left" [ref=e281]
+                    - button "View More Details" [ref=e284]:
+                      - generic [ref=e285]: View More Details
+                      - generic [ref=e287]: 
+              - link "Namah Laxmi Narayan, Show, Season 1, Episode 1, 28 minutes left" [ref=e294] [cursor=pointer]:
+                - /url: /in/shows/namah-laxmi-narayan/1260010974/the-tale-of-narayan-and-mahadev/1000243018/watch
+                - generic [ref=e295]:
+                  - generic [ref=e296]:
+                    - img "S1 E1 • 23 Sep" [ref=e300]
+                    - button [ref=e305]:
+                      - generic [ref=e307]: 
+                    - generic [ref=e309]:
+                      - generic [ref=e311]: 
+                      - generic [ref=e314]:
+                        - img [ref=e315]
+                        - generic:
+                          - paragraph
+                  - generic [ref=e319]:
+                    - generic "S1 E1 • 23 Sep" [ref=e321]
+                    - generic "28m left" [ref=e323]
+                    - button "View More Details" [ref=e326]:
+                      - generic [ref=e327]: View More Details
+                      - generic [ref=e329]: 
+              - link "A Knight of the Seven Kingdoms, Show, Season 1, Episode 1, 30 minutes left" [ref=e336] [cursor=pointer]:
+                - /url: /in/shows/a-knight-of-the-seven-kingdoms/1271461884/the-hedge-knight/1271522501/watch
+                - generic [ref=e337]:
+                  - generic [ref=e338]:
+                    - img "S1 E1" [ref=e342]
+                    - button [ref=e347]:
+                      - generic [ref=e349]: 
+                    - generic [ref=e351]:
+                      - generic [ref=e353]: 
+                      - generic [ref=e356]:
+                        - img [ref=e357]
+                        - generic:
+                          - paragraph
+                  - generic [ref=e361]:
+                    - generic "S1 E1" [ref=e363]
+                    - generic "30m left" [ref=e365]
+                    - button "View More Details" [ref=e368]:
+                      - generic [ref=e369]: View More Details
+                      - generic [ref=e371]: 
+              - link [ref=e378] [cursor=pointer]:
+                - /url: /in/movies/sarzameen/1271428997/watch
+                - generic [ref=e379]:
+                  - generic [ref=e380]:
+                    - img [ref=e384]
+                    - button [ref=e389]:
+                      - generic [ref=e391]: 
+                    - generic [ref=e393]:
+                      - generic [ref=e395]: 
+                      - img [ref=e399]
+                  - generic [ref=e403]:
+                    - generic [ref=e405]: Sarzameen
+                    - generic [ref=e407]: 2h 11m left
+                    - button [ref=e410]:
+                      - generic [ref=e411]: View More Details
+                      - generic [ref=e413]: 
+              - link [ref=e420] [cursor=pointer]:
+                - /url: /in/movies/cars-3/1260018162/watch
+                - generic [ref=e421]:
+                  - generic [ref=e422]:
+                    - generic [ref=e427]: Cars 3
+                    - button [ref=e432]:
+                      - generic [ref=e434]: 
+                    - generic [ref=e436]:
+                      - generic [ref=e438]: 
+                      - img [ref=e442]
+                  - generic [ref=e446]:
+                    - generic [ref=e448]: Cars 3
+                    - generic [ref=e450]: 6m left
+                    - button [ref=e453]:
+                      - generic [ref=e454]: View More Details
+                      - generic [ref=e456]: 
+              - link [ref=e463] [cursor=pointer]:
+                - /url: /in/movies/interstellar/1971000531/watch
+                - generic [ref=e464]:
+                  - generic [ref=e465]:
+                    - generic [ref=e470]: Interstellar
+                    - button [ref=e475]:
+                      - generic [ref=e477]: 
+                    - generic [ref=e479]:
+                      - generic [ref=e481]: 
+                      - img [ref=e485]
+                  - generic [ref=e489]:
+                    - generic [ref=e491]: Interstellar
+                    - generic [ref=e493]: 33m left
+                    - button [ref=e496]:
+                      - generic [ref=e497]: View More Details
+                      - generic [ref=e499]: 
+              - link [ref=e506] [cursor=pointer]:
+                - /url: /in/movies/brahmastra-part-one-shiva/1260110227/watch
+                - generic [ref=e507]:
+                  - generic [ref=e508]:
+                    - generic [ref=e513]: "Brahmāstra Part One: Shiva"
+                    - button [ref=e518]:
+                      - generic [ref=e520]: 
+                    - generic [ref=e522]:
+                      - generic [ref=e524]: 
+                      - img [ref=e528]
+                  - generic [ref=e532]:
+                    - generic [ref=e534]: "Brahmāstra Part One: Shiva"
+                    - generic [ref=e536]: 2h 19m left
+                    - button [ref=e539]:
+                      - generic [ref=e540]: View More Details
+                      - generic [ref=e542]: 
+            - button "" [ref=e543] [cursor=pointer]
+        - generic [ref=e547]:
+          - link "New on JioHotstar" [ref=e550] [cursor=pointer]:
+            - /url: /in/browse/reco-editorial/new-on-jiohotstar/tp-ed_CJE3EAEaAQI
+            - heading "New on JioHotstar" [level=2] [ref=e553]
+          - generic [ref=e555]:
+            - generic [ref=e556]:
+              - generic "Thaai Kizhavi,Movie" [ref=e561]:
+                - img "Thaai Kizhavi" [ref=e564]
+              - generic "Venom,Movie" [ref=e569]:
+                - img "Venom" [ref=e572]
+              - generic "The Testaments,Show" [ref=e577]:
+                - img "The Testaments" [ref=e580]
+                - generic [ref=e584]: NEW EPISODE WED
+              - generic "Anemone,Movie" [ref=e589]:
+                - img "Anemone" [ref=e592]
+              - generic "Secrets of the Bees,Show" [ref=e597]:
+                - img "Secrets of the Bees" [ref=e600]
+              - generic "Donna Hay Coastal Celebrations,Show" [ref=e605]:
+                - img "Donna Hay Coastal Celebrations" [ref=e608]
+              - generic "Postcards from Hong Kong,Show" [ref=e613]:
+                - generic [ref=e617]: Postcards from Hong Kong
+              - generic "Color Theories by Julio Torres,Movie" [ref=e622]:
+                - generic [ref=e626]: Color Theories by Julio Torres
+              - generic "Mike & Nick & Nick & Alice,Movie" [ref=e631]:
+                - generic [ref=e635]: Mike & Nick & Nick & Alice
+              - generic "Bharat Unbound - A University without Walls,Movie" [ref=e640]:
+                - generic [ref=e644]: Bharat Unbound - A University without Walls
+            - button "" [ref=e645] [cursor=pointer]
+        - generic [ref=e649]:
+          - link "Top 10 in India Today - English" [ref=e652] [cursor=pointer]:
+            - /url: /in/browse/top10/top-10-in-india-today-english/reco-top_EgEzKAQ
+            - heading "Top 10 in India Today - English" [level=2] [ref=e655]
+          - generic [ref=e657]:
+            - generic [ref=e658]:
+              - generic [ref=e661]:
+                - generic:
+                  - generic:
+                    - generic:
+                      - img
+                - generic "Modern Family,Show" [ref=e665]:
+                  - generic [ref=e669]: Modern Family
+              - generic [ref=e672]:
+                - generic:
+                  - generic:
+                    - generic:
+                      - img
+                - 'generic "Daredevil: Born Again,Show" [ref=e676]':
+                  - generic [ref=e680]: "Daredevil: Born Again"
+              - generic [ref=e683]:
+                - generic:
+                  - generic:
+                    - generic:
+                      - img
+                - generic "Game Of Thrones,Show" [ref=e687]:
+                  - generic [ref=e691]: Game Of Thrones
+              - generic [ref=e694]:
+                - generic:
+                  - generic:
+                    - generic:
+                      - img
+                - generic "High Potential,Show" [ref=e698]:
+                  - generic [ref=e702]: High Potential
+              - generic [ref=e705]:
+                - generic:
+                  - generic:
+                    - generic:
+                      - img
+                - generic "How I Met Your Mother,Show" [ref=e709]:
+                  - generic [ref=e713]: How I Met Your Mother
+              - generic [ref=e716]:
+                - generic:
+                  - generic:
+                    - generic:
+                      - img
+                - generic "Grey's Anatomy,Show" [ref=e720]:
+                  - generic [ref=e724]: Grey's Anatomy
+              - generic [ref=e727]:
+                - generic:
+                  - generic:
+                    - generic:
+                      - img
+                - generic "Zootopia 2,Movie" [ref=e731]:
+                  - generic [ref=e735]: Zootopia 2
+              - generic [ref=e738]:
+                - generic:
+                  - generic:
+                    - generic:
+                      - img
+                - generic "Family Guy,Show" [ref=e742]:
+                  - generic [ref=e746]: Family Guy
+            - button "" [ref=e747] [cursor=pointer]
+        - generic [ref=e751]:
+          - link "Kids' Corner" [ref=e754] [cursor=pointer]:
+            - /url: /in/browse/reco-collection/kids-corner/reco-tpfy_GgRLaWRz
+            - heading "Kids' Corner" [level=2] [ref=e757]
+          - generic [ref=e759]:
+            - generic [ref=e760]:
+              - generic "Zootopia 2,Movie" [ref=e765]:
+                - generic [ref=e769]: Zootopia 2
+                - generic [ref=e773]: NEWLY ADDED
+              - generic "Migration,Movie" [ref=e778]:
+                - generic [ref=e782]: Migration
+              - generic "Toy Story 3,Movie" [ref=e787]:
+                - generic [ref=e791]: Toy Story 3
+              - 'generic "Ice Age: Continental Drift,Movie" [ref=e796]':
+                - generic [ref=e800]: "Ice Age: Continental Drift"
+              - generic "Wall-E,Movie" [ref=e805]:
+                - generic [ref=e809]: Wall-E
+              - generic "Kung Fu Panda 4,Movie" [ref=e814]:
+                - generic [ref=e818]: Kung Fu Panda 4
+              - generic "Turbo,Movie" [ref=e823]:
+                - generic [ref=e827]: Turbo
+              - generic "Monsters University,Movie" [ref=e832]:
+                - generic [ref=e836]: Monsters University
+              - generic "Monsters, Inc.,Movie" [ref=e841]:
+                - generic [ref=e845]: Monsters, Inc.
+              - generic "Rio,Movie" [ref=e850]:
+                - generic [ref=e854]: Rio
+            - button "" [ref=e855] [cursor=pointer]
+        - generic [ref=e859]:
+          - link "Drama Delights" [ref=e862] [cursor=pointer]:
+            - /url: /in/browse/reco-collection/drama-delights/reco-tpfy_GgVEcmFtYQ
+            - heading "Drama Delights" [level=2] [ref=e865]
+          - generic [ref=e867]:
+            - generic [ref=e868]:
+              - generic "Chiraiya,Show" [ref=e873]:
+                - generic [ref=e877]: Chiraiya
+                - generic [ref=e881]: NEW RELEASE
+              - generic "2 States,Movie" [ref=e886]:
+                - generic [ref=e890]: 2 States
+                - generic [ref=e894]: NEWLY ADDED
+              - generic "The Martian,Movie" [ref=e899]:
+                - generic [ref=e903]: The Martian
+              - generic "Kis Kisko Pyaar Karoon 2,Movie" [ref=e908]:
+                - generic [ref=e912]: Kis Kisko Pyaar Karoon 2
+              - generic "Chhichhore,Movie" [ref=e917]:
+                - generic [ref=e921]: Chhichhore
+              - 'generic "Space Gen: Chandrayaan,Show" [ref=e926]':
+                - generic [ref=e930]: "Space Gen: Chandrayaan"
+              - 'generic "Top Gun: Maverick,Movie" [ref=e935]':
+                - generic [ref=e939]: "Top Gun: Maverick"
+              - generic "Chernobyl,Show" [ref=e944]:
+                - generic [ref=e948]: Chernobyl
+              - generic "Kai Po Che,Movie" [ref=e953]:
+                - generic [ref=e957]: Kai Po Che
+                - generic [ref=e961]: NEWLY ADDED
+              - generic "Game Of Thrones,Show" [ref=e966]:
+                - generic [ref=e970]: Game Of Thrones
+            - button "" [ref=e971] [cursor=pointer]
+        - generic [ref=e975]:
+          - link "Best of TATA IPL 2026" [ref=e978] [cursor=pointer]:
+            - /url: /in/browse/editorial/best-of-tata-ipl-2026/1271508143
+            - heading "Best of TATA IPL 2026" [level=2] [ref=e981]
+          - generic [ref=e983]:
+            - generic [ref=e984]:
+              - generic [ref=e988]:
+                - 'link "KKR vs LSG: Highlights, Clip, 16 minutes" [ref=e990] [cursor=pointer]':
+                  - /url: /in/sports/cricket/kkr-vs-lsg-highlights/1540065726/video/highlights/watch
+                  - generic [ref=e993]:
+                    - generic [ref=e997]: "KKR vs LSG: Highlights"
+                    - generic [ref=e999]:
+                      - generic [ref=e1001]: 
+                      - paragraph [ref=e1002]: 16m
+                  - 'generic "KKR vs LSG: Highlights" [ref=e1004]'
+                - text: 
+              - generic [ref=e1008]:
+                - link "Mukul's Heroics Hand LSG Last-ball Win, Clip, 6 minutes" [ref=e1010] [cursor=pointer]:
+                  - /url: /in/sports/cricket/mukuls-heroics-hand-lsg-last-ball-win/1271627135/watch
+                  - generic [ref=e1013]:
+                    - generic [ref=e1017]: Mukul's Heroics Hand LSG Last-ball Win
+                    - generic [ref=e1019]:
+                      - generic [ref=e1021]: 
+                      - paragraph [ref=e1022]: 6m
+                  - generic "Mukul's Heroics Hand LSG Last-ball Win" [ref=e1024]
+                - text: 
+              - generic [ref=e1028]:
+                - link "Mukul's 27-ball 54* vs KKR, Clip, 3 minutes" [ref=e1030] [cursor=pointer]:
+                  - /url: /in/sports/cricket/mukuls-27-ball-54-vs-kkr/1271618592/watch
+                  - generic [ref=e1033]:
+                    - generic [ref=e1037]: Mukul's 27-ball 54* vs KKR
+                    - generic [ref=e1039]:
+                      - generic [ref=e1041]: 
+                      - paragraph [ref=e1042]: 3m
+                  - generic "Mukul's 27-ball 54* vs KKR" [ref=e1044]
+                - text: 
+              - generic [ref=e1048]:
+                - link "Badoni's 54 vs KKR, Clip, 2 minutes" [ref=e1050] [cursor=pointer]:
+                  - /url: /in/sports/cricket/badonis-54-vs-kkr/1271618590/watch
+                  - generic [ref=e1053]:
+                    - generic [ref=e1057]: Badoni's 54 vs KKR
+                    - generic [ref=e1059]:
+                      - generic [ref=e1061]: 
+                      - paragraph [ref=e1062]: 2m
+                  - generic "Badoni's 54 vs KKR" [ref=e1064]
+                - text: 
+              - generic [ref=e1068]:
+                - link [ref=e1070] [cursor=pointer]:
+                  - /url: /in/sports/cricket/preview-rr-vs-rcb/1271616917/watch
+                  - generic [ref=e1073]:
+                    - generic [ref=e1077]: "Preview: RR vs RCB"
+                    - generic [ref=e1079]:
+                      - generic [ref=e1081]: 
+                      - paragraph [ref=e1082]: 5m
+                  - generic [ref=e1084]: "Preview: RR vs RCB"
+                - text: 
+              - generic [ref=e1088]:
+                - link [ref=e1090] [cursor=pointer]:
+                  - /url: /in/shows/halla-bol/1271614232/can-unbeaten-rr-hand-rcb-their-first-loss/1271627305/watch
+                  - generic [ref=e1093]:
+                    - generic [ref=e1097]: Can Unbeaten RR Hand RCB Their First Loss?
+                    - generic [ref=e1099]:
+                      - generic [ref=e1101]: 
+                      - paragraph [ref=e1102]: 12m
+                  - generic [ref=e1104]: Can Unbeaten RR Hand RCB Their First Loss?
+                - text: 
+              - generic [ref=e1108]:
+                - link [ref=e1110] [cursor=pointer]:
+                  - /url: /in/sports/cricket/rr-host-rcb-in-battle-of-royals/1271627137/watch
+                  - generic [ref=e1113]:
+                    - generic [ref=e1117]: RR Host RCB in Battle of Royals
+                    - generic [ref=e1119]:
+                      - generic [ref=e1121]: 
+                      - paragraph [ref=e1122]: 12m
+                  - generic [ref=e1124]: RR Host RCB in Battle of Royals
+                - text: 
+              - generic [ref=e1128]:
+                - link [ref=e1130] [cursor=pointer]:
+                  - /url: /in/sports/cricket/rahanes-24-ball-41-vs-lsg/1271618588/watch
+                  - generic [ref=e1133]:
+                    - generic [ref=e1137]: Rahane's 24-ball 41 vs LSG
+                    - generic [ref=e1139]:
+                      - generic [ref=e1141]: 
+                      - paragraph [ref=e1142]: 2m
+                  - generic [ref=e1144]: Rahane's 24-ball 41 vs LSG
+                - text: 
+            - button "" [ref=e1145] [cursor=pointer]
+        - generic [ref=e1149]:
+          - link "Action Movies" [ref=e1152] [cursor=pointer]:
+            - /url: /in/browse/reco-collection/action-movies/reco-tpfy_CgECGgZBY3Rpb24
+            - heading "Action Movies" [level=2] [ref=e1155]
+          - generic [ref=e1157]:
+            - generic [ref=e1158]:
+              - generic "Penguins Of Madagascar,Movie" [ref=e1163]:
+                - generic [ref=e1167]: Penguins Of Madagascar
+              - generic "2012,Movie" [ref=e1172]:
+                - generic [ref=e1176]: "2012"
+              - generic "Iron Man,Movie" [ref=e1181]:
+                - generic [ref=e1185]: Iron Man
+              - 'generic "Avengers: Infinity War,Movie" [ref=e1190]':
+                - generic [ref=e1194]: "Avengers: Infinity War"
+              - generic "Johnny English Reborn,Movie" [ref=e1199]:
+                - generic [ref=e1203]: Johnny English Reborn
+              - 'generic "Top Gun: Maverick,Movie" [ref=e1208]':
+                - generic [ref=e1212]: "Top Gun: Maverick"
+              - generic "Deadpool & Wolverine,Movie" [ref=e1217]:
+                - generic [ref=e1221]: Deadpool & Wolverine
+              - generic "Inception,Movie" [ref=e1226]:
+                - generic [ref=e1230]: Inception
+              - generic "Kabir Singh,Movie" [ref=e1235]:
+                - generic [ref=e1239]: Kabir Singh
+              - generic "The Family Star,Movie" [ref=e1244]:
+                - generic [ref=e1248]: The Family Star
+            - button "" [ref=e1249] [cursor=pointer]
+    - contentinfo [ref=e1250]:
+      - generic [ref=e1251]:
+        - generic [ref=e1252]:
+          - heading "Company" [level=4] [ref=e1253]
+          - list [ref=e1254]:
+            - listitem [ref=e1255]:
+              - link "About Us" [ref=e1257] [cursor=pointer]:
+                - /url: https://www.hotstar.com/about-us/in
+                - generic [ref=e1258]: About Us
+            - listitem [ref=e1259]:
+              - link "Careers" [ref=e1261] [cursor=pointer]:
+                - /url: https://careers.hotstar.com/
+                - generic [ref=e1262]: Careers
+        - generic [ref=e1263]:
+          - heading "View Website in" [level=4] [ref=e1264]
+          - list [ref=e1265]:
+            - listitem [ref=e1266]:
+              - generic [ref=e1267] [cursor=pointer]:
+                - generic [ref=e1268]: 
+                - text: English
+        - generic [ref=e1269]:
+          - heading "Need Help?" [level=4] [ref=e1270]
+          - list [ref=e1271]:
+            - listitem [ref=e1272]:
+              - link "Visit Help Center" [ref=e1274] [cursor=pointer]:
+                - /url: https://help.hotstar.com/in/en/support/home
+                - generic [ref=e1275]: Visit Help Center
+            - listitem [ref=e1276]:
+              - link "Share Feedback" [ref=e1278] [cursor=pointer]:
+                - /url: https://help.hotstar.com/in/en/support/tickets/feedback
+                - generic [ref=e1279]: Share Feedback
+        - generic [ref=e1280]:
+          - heading "Connect with Us" [level=4] [ref=e1281]
+          - list [ref=e1282]:
+            - listitem [ref=e1283]:
+              - link "Facebook" [ref=e1285] [cursor=pointer]:
+                - /url: https://www.facebook.com/JioHotstar
+                - generic "Facebook" [ref=e1286]: 
+            - listitem [ref=e1287]:
+              - link "Twitter" [ref=e1289] [cursor=pointer]:
+                - /url: https://x.com/jiohotstar
+                - generic "Twitter" [ref=e1290]: 
+      - generic [ref=e1291]:
+        - generic [ref=e1292]:
+          - paragraph [ref=e1294]: © 2026 STAR. All Rights Reserved.
+          - list [ref=e1295]:
+            - listitem [ref=e1296]:
+              - link "Terms Of Use" [ref=e1298] [cursor=pointer]:
+                - /url: https://www.hotstar.com/tnc/in
+            - listitem [ref=e1299]:
+              - link "Privacy Policy" [ref=e1301] [cursor=pointer]:
+                - /url: https://www.hotstar.com/privacy-policy/in
+            - listitem [ref=e1302]:
+              - link "FAQ" [ref=e1304] [cursor=pointer]:
+                - /url: https://help.hotstar.com/in/en/support/home
+        - generic [ref=e1305]:
+          - link "Get it on Google Play" [ref=e1307] [cursor=pointer]:
+            - /url: https://play.google.com/store/apps/details?id=in.startv.hotstar
+            - img "Get it on Google Play" [ref=e1310]
+          - link "Download on the App Store" [ref=e1312] [cursor=pointer]:
+            - /url: https://itunes.apple.com/in/app/hotstar/id934459219?mt=8
+            - img "Download on the App Store" [ref=e1315]
+  - alert [ref=e1316]: JioHotstar - Watch TV Shows, Movies, Specials, Live Cricket & Football

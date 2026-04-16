@@ -1,0 +1,44 @@
+- generic [ref=e1]:
+  - generic [ref=e4]:
+    - main:
+      - generic [ref=e1126]:
+        - generic [ref=e1127]:
+          - generic [ref=e1128]:
+            - button "Back" [ref=e1130] [cursor=pointer]:
+              - generic [ref=e1132]: 
+            - button "Housefull 4" [active] [ref=e1133] [cursor=pointer]:
+              - heading [level=1] [ref=e1136]: Housefull 4
+          - generic [ref=e1138]:
+            - button "Quality Auto" [ref=e1139] [cursor=pointer]:
+              - generic [ref=e1142]:
+                - generic [ref=e1143]: 
+                - paragraph [ref=e1145]: Quality
+                - paragraph [ref=e1147]: Auto
+            - button "Audio & Subtitles" [ref=e1148] [cursor=pointer]:
+              - generic [ref=e1151]:
+                - generic [ref=e1152]: 
+                - paragraph [ref=e1154]: Audio & Subtitles
+        - generic [ref=e1156]:
+          - generic [ref=e1158]:
+            - button "Current position" [ref=e1160] [cursor=pointer]:
+              - button "Current position" [ref=e1166]
+            - generic [ref=e1177]: 2:07:21
+          - generic [ref=e1178]:
+            - generic [ref=e1179]:
+              - generic [ref=e1180]:
+                - button "Rewind 10 seconds" [ref=e1181] [cursor=pointer]:
+                  - generic [ref=e1183]: 
+                  - generic [ref=e1185]: "10"
+                - button "Pause" [ref=e1186] [cursor=pointer]:
+                  - generic [ref=e1188]: 
+                - button "Forward 10 seconds" [ref=e1189] [cursor=pointer]:
+                  - generic [ref=e1191]: "10"
+                  - generic [ref=e1193]: 
+              - button "Unmute" [ref=e1197] [cursor=pointer]:
+                - generic [ref=e1199]: 
+            - button "More Like This" [ref=e1202] [cursor=pointer]:
+              - heading "More Like This" [level=2] [ref=e1205]
+              - generic [ref=e1207]: 
+            - button "Go to full screen" [ref=e1210] [cursor=pointer]:
+              - generic [ref=e1212]: 
+  - alert [ref=e933]: JioHotstar - Watch TV Shows, Movies, Specials, Live Cricket & Football

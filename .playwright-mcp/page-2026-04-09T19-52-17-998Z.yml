@@ -1,0 +1,18 @@
+- generic [ref=e1]:
+  - heading "Watch Party — Test Page" [level=2] [ref=e2]
+  - generic [ref=e3]: ● Guest
+  - generic [ref=e4]:
+    - button "Join as Host" [ref=e5] [cursor=pointer]
+    - button "Join as Guest" [active] [ref=e6] [cursor=pointer]
+    - button "Leave" [ref=e7] [cursor=pointer]
+  - generic [ref=e8]:
+    - button "▶ Play" [disabled] [ref=e9]
+    - button "⏸ Pause" [disabled] [ref=e10]
+    - button "⏩ Seek to 60s" [disabled] [ref=e11]
+  - generic [ref=e12]: "currentTime: 0.00s | paused: true"
+  - list [ref=e13]:
+    - listitem [ref=e14]: 19:52:16.946 WS open → joining room "playwright-test-room" as guest
+    - listitem [ref=e15]: "19:52:16.951 {\"type\":\"joined\",\"role\":\"guest\",\"clientId\":\"guest-znicw\"}"
+    - listitem [ref=e16]: 19:52:16.953 Joined as guest
+    - listitem [ref=e17]: "19:52:17.323 {\"type\":\"sync-response\",\"time\":0,\"paused\":true}"
+    - listitem [ref=e18]: 19:52:17.323 applied → t=0.00 paused=true

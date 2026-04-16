@@ -17,6 +17,8 @@ Static routes served:
 
 ## Testing
 
+See **[TESTING.md](TESTING.md)** for the full end-to-end testing approach (emulator + browser + real video).
+
 No test framework is set up. Two ways to verify the sync logic:
 
 **Automated (Node.js WebSocket client):**

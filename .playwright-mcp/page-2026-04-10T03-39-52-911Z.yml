@@ -1,0 +1,13 @@
+- generic [active] [ref=e1]:
+  - heading "Watch Party — Test Page" [level=2] [ref=e2]
+  - generic [ref=e3]: Not connected
+  - generic [ref=e4]:
+    - button "Join as Host" [ref=e5] [cursor=pointer]
+    - button "Join as Guest" [ref=e6] [cursor=pointer]
+    - button "Leave" [disabled] [ref=e7]
+  - generic [ref=e8]:
+    - button "▶ Play" [disabled] [ref=e9]
+    - button "⏸ Pause" [disabled] [ref=e10]
+    - button "⏩ Seek to 60s" [disabled] [ref=e11]
+  - generic [ref=e12]: "currentTime: 0.00s | paused: true"
+  - list [ref=e13]

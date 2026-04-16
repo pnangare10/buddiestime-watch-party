@@ -4,9 +4,15 @@
   "version": "1.0.0",
   "description": "Sync Hotstar playback with a partner in real time",
   "permissions": ["storage", "tabs"],
+  "host_permissions": [
+    "*://*.hotstar.com/*",
+    "*://*.jiohotstar.com/*",
+    "ws://*/*",
+    "wss://*/*"
+  ],
   "content_scripts": [
     {
-      "matches": ["*://*.hotstar.com/*"],
+      "matches": ["*://*.hotstar.com/*", "*://*.jiohotstar.com/*"],
       "js": ["content.js"],
       "run_at": "document_idle"
     }

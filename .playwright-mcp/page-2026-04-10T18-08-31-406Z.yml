@@ -1,0 +1,346 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - generic [ref=e5]:
+      - generic [ref=e9]:
+        - img "JioHotstar" [ref=e10]
+        - button "Upgrade" [ref=e11] [cursor=pointer]:
+          - generic [ref=e12]: Upgrade
+          - generic [ref=e13]: 
+      - complementary [ref=e15]:
+        - navigation [ref=e16]:
+          - tab "Home" [ref=e18] [cursor=pointer]:
+            - button [ref=e19]:
+              - generic [ref=e21]: 
+          - tab "Search" [ref=e23] [cursor=pointer]:
+            - button [ref=e24]:
+              - generic [ref=e26]: 
+          - tab "TV" [ref=e28] [cursor=pointer]:
+            - button [ref=e29]:
+              - generic [ref=e31]: 
+          - tab "Movies" [selected] [ref=e33] [cursor=pointer]:
+            - button [ref=e34]:
+              - generic [ref=e36]: 
+          - tab "Sports" [ref=e38] [cursor=pointer]:
+            - button [ref=e39]:
+              - generic [ref=e41]: 
+          - tab "Sparks" [ref=e43] [cursor=pointer]:
+            - button [ref=e44]:
+              - generic [ref=e46]: 
+          - tab "Categories" [ref=e48] [cursor=pointer]:
+            - button [ref=e49]:
+              - generic [ref=e51]: 
+          - tab "My Space" [ref=e53] [cursor=pointer]:
+            - button "Avatar" [ref=e54]:
+              - img "Avatar" [ref=e57]
+      - main [ref=e58]:
+        - heading "Jio Hotstar Home" [level=1] [ref=e59]
+        - generic [ref=e63]:
+          - generic [ref=e67]:
+            - generic:
+              - link:
+                - /url: https://service.hotstar.com/shifu/redirection/api/v1/landing?id-type=ad&ad-id=AD1775741136428891&cp-ad-clicktimer=[cp.ad.clicktimer]&cp-timestamp=[cp.timestamp]&cp-device_orientation=[cp.device_orientation]&shifu-request-device_platform=WEB&shifu-request-user_id=251223-611e42-985ea-33d2f7&shifu-request-device_network_data=4G&shifu-prediction-model_id=DEFAULT%2CNO_MODEL%2CNO_MODEL&shifu-ad-creative-aspect_ratio=86%3A37&shifu-user-ifa=&shifu-campaign-id=CA177461226864306&shifu-request-lat=&shifu-request-state=MH&shifu-break-total=1&shifu-break-slot_count=1&shifu-content-parental_rating=&shifu-ad-duration=0&shifu-request-content_language=&shifu-content-type=&shifu-request-long=&shifu-request-content_id=&shifu-request-custom_tags=&shifu-request-device_app_version=26.03.06.0&shifu-adset-name=IPL2026_PHD_USA_OpenAI_VOD_Billboard_Handheld_PanIndia_West_MMkt&shifu-request-user_lat=false&shifu-content-episode_number=&shifu-request-request_id=5db2cd-91ab25-1e517f-8ce8756571498&shifu-ad-name=CHATGPT_RAJASTHAN_2_MOB_BILLBOARD_ENG_1032X444_StaticBillboard_100426&shifu-request-device_brand=&shifu-request-device_os_version=10&shifu-serving-version=v1&shifu-ad-companion_type=Undefined&shifu-content-title=&shifu-content-genre=&shifu-break-id=5db2cd-91ab25-1e517f-8ce8756571498--1&shifu-request-is_live=&shifu-user-ifa_type=&shifu-request-user_account_type=SUBSCRIBED_HOTSTARSUPER&shifu-break-start_time=0&shifu-content-show_name=&shifu-content-provider=&shifu-impression_id=5db2cd-91ab25-1e517f-8ce8756571498-8164127&shifu-ad-format=IMAGE&shifu-request-p_id=13fee312fa1a407196dbe955eb6b3f45&shifu-break-no=-1&shifu-request-device_id=251223-611e42-985ea-33d2f7&shifu-request-dw_p_id=aa3f5c3370078c9665e2d9872c67e43cb6510eb552534cb637fabfe3df3499cd&shifu-ad-id=AD1775741136428891&shifu-ad-placement=BILLBOARD_MOVIES&shifu-content-studio=&shifu-content-season_number=&shifu-request-prefetch=&shifu-adset-id=AT1774613574204157&shifu-request-city=PUNE&shifu-request-device_model=&shifu-server_time_id=29597408&shifu-content-channel_name=&shifu-request-country=IN&shifu-request-device_carrier=&shifu-ad-slot_index=&shifu-user-adv_user_id=251223-611e42-985ea-33d2f7&shifu-request-user_segment=SSAI%3A%3AA_U%3AD_NA%3AG_U%3AS_MH%3AM_PUN%3AN_NA%2CCOUNTRY_IN%2CSTATE_MH%2CCITY_PUNE%2CPIN_410501%2CB_S_MH%2CB_C_PUNE%2CB_P_410501%2CA8AK2%2CDP22%2CA8AK1%2CA89L3%2CA8A5P%2CA8AIF%2CDP03%2CA8AD0%2CA8A5O%2CA8AGN%2CDN03%2CDP13%2CA89PX%2CA8ABG%2CA8AD1%2CPHT%2CA8AGO%2CA8A5M&shifu-campaign-name=YM_IPL2026_PHD_USA_OpenAI_VOD_Billboard_Handheld_PanIndia_West_MMkt&shifu-break-slot_filled=1
+                - img [ref=e68] [cursor=pointer]
+          - generic [ref=e69]:
+            - generic [ref=e70]:
+              - generic [ref=e72]:
+                - img [ref=e74]
+                - generic [ref=e75]:
+                  - generic [ref=e76]:
+                    - generic [ref=e77]: Advertisement
+                    - generic [ref=e78]: Ad
+                    - paragraph [ref=e79]: ChatGPT
+                  - paragraph [ref=e80]: Answers & Inspiration
+              - paragraph [ref=e82]: Helps you get answers, find inspiration, and be more productive.
+            - link "Try Now" [ref=e84] [cursor=pointer]:
+              - /url: https://service.hotstar.com/shifu/redirection/api/v1/landing?id-type=ad&ad-id=AD1775741136428891&cp-ad-clicktimer=[cp.ad.clicktimer]&cp-timestamp=[cp.timestamp]&cp-device_orientation=[cp.device_orientation]&shifu-request-device_platform=WEB&shifu-request-user_id=251223-611e42-985ea-33d2f7&shifu-request-device_network_data=4G&shifu-prediction-model_id=DEFAULT%2CNO_MODEL%2CNO_MODEL&shifu-ad-creative-aspect_ratio=86%3A37&shifu-user-ifa=&shifu-campaign-id=CA177461226864306&shifu-request-lat=&shifu-request-state=MH&shifu-break-total=1&shifu-break-slot_count=1&shifu-content-parental_rating=&shifu-ad-duration=0&shifu-request-content_language=&shifu-content-type=&shifu-request-long=&shifu-request-content_id=&shifu-request-custom_tags=&shifu-request-device_app_version=26.03.06.0&shifu-adset-name=IPL2026_PHD_USA_OpenAI_VOD_Billboard_Handheld_PanIndia_West_MMkt&shifu-request-user_lat=false&shifu-content-episode_number=&shifu-request-request_id=5db2cd-91ab25-1e517f-8ce8756571498&shifu-ad-name=CHATGPT_RAJASTHAN_2_MOB_BILLBOARD_ENG_1032X444_StaticBillboard_100426&shifu-request-device_brand=&shifu-request-device_os_version=10&shifu-serving-version=v1&shifu-ad-companion_type=Undefined&shifu-content-title=&shifu-content-genre=&shifu-break-id=5db2cd-91ab25-1e517f-8ce8756571498--1&shifu-request-is_live=&shifu-user-ifa_type=&shifu-request-user_account_type=SUBSCRIBED_HOTSTARSUPER&shifu-break-start_time=0&shifu-content-show_name=&shifu-content-provider=&shifu-impression_id=5db2cd-91ab25-1e517f-8ce8756571498-8164127&shifu-ad-format=IMAGE&shifu-request-p_id=13fee312fa1a407196dbe955eb6b3f45&shifu-break-no=-1&shifu-request-device_id=251223-611e42-985ea-33d2f7&shifu-request-dw_p_id=aa3f5c3370078c9665e2d9872c67e43cb6510eb552534cb637fabfe3df3499cd&shifu-ad-id=AD1775741136428891&shifu-ad-placement=BILLBOARD_MOVIES&shifu-content-studio=&shifu-content-season_number=&shifu-request-prefetch=&shifu-adset-id=AT1774613574204157&shifu-request-city=PUNE&shifu-request-device_model=&shifu-server_time_id=29597408&shifu-content-channel_name=&shifu-request-country=IN&shifu-request-device_carrier=&shifu-ad-slot_index=&shifu-user-adv_user_id=251223-611e42-985ea-33d2f7&shifu-request-user_segment=SSAI%3A%3AA_U%3AD_NA%3AG_U%3AS_MH%3AM_PUN%3AN_NA%2CCOUNTRY_IN%2CSTATE_MH%2CCITY_PUNE%2CPIN_410501%2CB_S_MH%2CB_C_PUNE%2CB_P_410501%2CA8AK2%2CDP22%2CA8AK1%2CA89L3%2CA8A5P%2CA8AIF%2CDP03%2CA8AD0%2CA8A5O%2CA8AGN%2CDN03%2CDP13%2CA89PX%2CA8ABG%2CA8AD1%2CPHT%2CA8AGO%2CA8A5M&shifu-campaign-name=YM_IPL2026_PHD_USA_OpenAI_VOD_Billboard_Handheld_PanIndia_West_MMkt&shifu-break-slot_filled=1
+              - button "Try Now" [ref=e86]:
+                - generic [ref=e87]: Try Now
+        - generic [ref=e90]:
+          - img [ref=e96]
+          - region "Featured Content" [ref=e98] [cursor=pointer]:
+            - generic [ref=e99]:
+              - generic [ref=e104]:
+                - generic [ref=e105]:
+                  - heading "Housefull 4" [level=2] [ref=e107]:
+                    - img "Housefull 4" [ref=e111]
+                  - generic "2019, U/A 13+, 2h 15m, Hindi" [ref=e115]:
+                    - generic [ref=e117]: "2019"
+                    - generic [ref=e118]:
+                      - generic [ref=e121]: 
+                      - generic [ref=e122]: U/A 13+
+                    - generic [ref=e123]:
+                      - generic [ref=e126]: 
+                      - generic [ref=e127]: 2h 15m
+                    - generic [ref=e128]:
+                      - generic [ref=e131]: 
+                      - generic [ref=e132]: Hindi
+                  - generic:   
+                - generic [ref=e134]:
+                  - link "Watch Now" [ref=e137]:
+                    - /url: /in/movies/housefull-4/1260014263/watch
+                    - button "Watch Now" [ref=e138]:
+                      - generic: 
+                      - generic [ref=e140]: Watch Now
+                  - button "Add to watchlist" [ref=e144]:
+                    - generic [ref=e146]: 
+              - generic [ref=e149]:
+                - list [ref=e150]:
+                  - listitem [ref=e151]:
+                    - button "Housefull 4" [ref=e152]:
+                      - img "Housefull 4" [ref=e155]
+                  - listitem [ref=e156]:
+                    - button "The Carpenter's Son" [ref=e157]:
+                      - img "The Carpenter's Son" [ref=e160]
+                  - listitem [ref=e161]:
+                    - button "Chhichhore" [ref=e162]:
+                      - img "Chhichhore" [ref=e165]
+                  - listitem [ref=e166]:
+                    - button [ref=e167]:
+                      - img [ref=e170]
+                  - listitem [ref=e171]:
+                    - button [ref=e172]:
+                      - img [ref=e175]
+                - button "" [ref=e176]
+        - generic [ref=e180]:
+          - link "Action Movies" [ref=e183] [cursor=pointer]:
+            - /url: /in/browse/reco-collection/action-movies/reco-tpfy_CgECGgZBY3Rpb24
+            - heading "Action Movies" [level=2] [ref=e186]
+          - generic [ref=e188]:
+            - generic [ref=e189]:
+              - generic "Penguins Of Madagascar,Movie" [ref=e194]:
+                - img "Penguins Of Madagascar" [ref=e197]
+              - generic "2012,Movie" [ref=e202]:
+                - img "2012" [ref=e205]
+              - 'generic "Avengers: Infinity War,Movie" [ref=e210]':
+                - 'img "Avengers: Infinity War" [ref=e213]'
+              - generic "Iron Man,Movie" [ref=e218]:
+                - img "Iron Man" [ref=e221]
+              - generic "Deadpool & Wolverine,Movie" [ref=e226]:
+                - img "Deadpool & Wolverine" [ref=e229]
+              - generic "Kabir Singh,Movie" [ref=e234]:
+                - img "Kabir Singh" [ref=e237]
+              - generic "Kill,Movie" [ref=e242]:
+                - generic [ref=e246]: Kill
+              - generic "Johnny English Reborn,Movie" [ref=e251]:
+                - generic [ref=e255]: Johnny English Reborn
+              - 'generic "Top Gun: Maverick,Movie" [ref=e260]':
+                - generic [ref=e264]: "Top Gun: Maverick"
+              - generic "Boss,Movie" [ref=e269]:
+                - generic [ref=e273]: Boss
+                - generic [ref=e277]: NEWLY ADDED
+            - button "" [ref=e278] [cursor=pointer]
+        - generic [ref=e282]:
+          - link "Drama Movies" [ref=e285] [cursor=pointer]:
+            - /url: /in/browse/reco-collection/drama-movies/reco-tpfy_CgECGgVEcmFtYQ
+            - heading "Drama Movies" [level=2] [ref=e288]
+          - generic [ref=e290]:
+            - generic [ref=e291]:
+              - generic "2 States,Movie" [ref=e296]:
+                - generic [ref=e300]: 2 States
+                - generic [ref=e304]: NEWLY ADDED
+              - generic "The Martian,Movie" [ref=e309]:
+                - generic [ref=e313]: The Martian
+              - generic "Kis Kisko Pyaar Karoon 2,Movie" [ref=e318]:
+                - generic [ref=e322]: Kis Kisko Pyaar Karoon 2
+              - generic "Chhichhore,Movie" [ref=e327]:
+                - generic [ref=e331]: Chhichhore
+              - generic "Durlabh Prasad Ki Dusri Shadi,Movie" [ref=e336]:
+                - generic [ref=e340]: Durlabh Prasad Ki Dusri Shadi
+                - generic [ref=e344]: NEWLY ADDED
+              - generic "Vaazha,Movie" [ref=e349]:
+                - generic [ref=e353]: Vaazha
+              - generic "Kai Po Che,Movie" [ref=e358]:
+                - generic [ref=e362]: Kai Po Che
+                - generic [ref=e366]: NEWLY ADDED
+              - generic "Ask Me What You Want,Movie" [ref=e371]:
+                - generic [ref=e375]: Ask Me What You Want
+              - generic "Kabir Singh,Movie" [ref=e380]:
+                - generic [ref=e384]: Kabir Singh
+              - generic "Match Fixing,Movie" [ref=e389]:
+                - generic [ref=e393]: Match Fixing
+                - generic [ref=e397]: NEWLY ADDED
+            - button "" [ref=e398] [cursor=pointer]
+        - generic [ref=e402]:
+          - link "Kids Movies" [ref=e405] [cursor=pointer]:
+            - /url: /in/browse/reco-collection/kids-movies/reco-tpfy_CgECGgRLaWRz
+            - heading "Kids Movies" [level=2] [ref=e408]
+          - generic [ref=e410]:
+            - generic [ref=e411]:
+              - generic "Zootopia 2,Movie" [ref=e416]:
+                - generic [ref=e420]: Zootopia 2
+                - generic [ref=e424]: NEWLY ADDED
+              - generic "Toy Story 3,Movie" [ref=e429]:
+                - generic [ref=e433]: Toy Story 3
+              - generic "Monsters University,Movie" [ref=e438]:
+                - generic [ref=e442]: Monsters University
+              - 'generic "Ice Age: Continental Drift,Movie" [ref=e447]':
+                - generic [ref=e451]: "Ice Age: Continental Drift"
+              - generic "Migration,Movie" [ref=e456]:
+                - generic [ref=e460]: Migration
+              - generic "Wall-E,Movie" [ref=e465]:
+                - generic [ref=e469]: Wall-E
+              - generic "The Incredibles,Movie" [ref=e474]:
+                - generic [ref=e478]: The Incredibles
+              - generic "A Minecraft Movie,Movie" [ref=e483]:
+                - generic [ref=e487]: A Minecraft Movie
+              - generic "Turbo,Movie" [ref=e492]:
+                - generic [ref=e496]: Turbo
+              - generic "Kung Fu Panda 4,Movie" [ref=e501]:
+                - generic [ref=e505]: Kung Fu Panda 4
+            - button "" [ref=e506] [cursor=pointer]
+        - generic [ref=e510]:
+          - link "Popular Movies" [ref=e513] [cursor=pointer]:
+            - /url: /in/browse/leaderboard/popular-movies/reco-pop_CgNBbGwaB0FCTW92aWUiA0FsbA
+            - heading "Popular Movies" [level=2] [ref=e516]
+          - generic [ref=e518]:
+            - generic [ref=e519]:
+              - generic "Zootopia 2,Movie" [ref=e524]:
+                - generic [ref=e528]: Zootopia 2
+                - generic [ref=e532]: NEWLY ADDED
+              - generic "Kis Kisko Pyaar Karoon 2,Movie" [ref=e537]:
+                - generic [ref=e541]: Kis Kisko Pyaar Karoon 2
+              - generic "The Carpenter's Son,Movie" [ref=e546]:
+                - generic [ref=e550]: The Carpenter's Son
+                - generic [ref=e554]: NEWLY ADDED
+              - generic "Match Fixing,Movie" [ref=e559]:
+                - generic [ref=e563]: Match Fixing
+                - generic [ref=e567]: NEWLY ADDED
+              - generic "Five Nights at Freddy's 2,Movie" [ref=e572]:
+                - generic [ref=e576]: Five Nights at Freddy's 2
+                - generic [ref=e580]: NEWLY ADDED
+              - generic "The Raja Saab,Movie" [ref=e585]:
+                - generic [ref=e589]: The Raja Saab
+              - generic "Ask Me What You Want,Movie" [ref=e594]:
+                - generic [ref=e598]: Ask Me What You Want
+              - generic "Durlabh Prasad Ki Dusri Shadi,Movie" [ref=e603]:
+                - generic [ref=e607]: Durlabh Prasad Ki Dusri Shadi
+                - generic [ref=e611]: NEWLY ADDED
+              - generic "Harry Potter And The Sorcerer's Stone,Movie" [ref=e616]:
+                - generic [ref=e620]: Harry Potter And The Sorcerer's Stone
+              - 'generic "The Conjuring: Last Rites,Movie" [ref=e625]':
+                - generic [ref=e629]: "The Conjuring: Last Rites"
+            - button "" [ref=e630] [cursor=pointer]
+        - generic [ref=e634]:
+          - link "Thriller Movies" [ref=e637] [cursor=pointer]:
+            - /url: /in/browse/reco-collection/thriller-movies/reco-tpfy_CgECGghUaHJpbGxlcg
+            - heading "Thriller Movies" [level=2] [ref=e640]
+          - generic [ref=e642]:
+            - generic [ref=e643]:
+              - generic "Limitless,Movie" [ref=e648]:
+                - generic [ref=e652]: Limitless
+              - generic "Weapons,Movie" [ref=e657]:
+                - generic [ref=e661]: Weapons
+                - generic [ref=e665]: OSCAR® WINNER
+              - generic "Ask Me What You Want,Movie" [ref=e670]:
+                - generic [ref=e674]: Ask Me What You Want
+              - generic "Kill,Movie" [ref=e679]:
+                - generic [ref=e683]: Kill
+              - generic "Match Fixing,Movie" [ref=e688]:
+                - generic [ref=e692]: Match Fixing
+                - generic [ref=e696]: NEWLY ADDED
+              - generic "Sinners,Movie" [ref=e701]:
+                - generic [ref=e705]: Sinners
+                - generic [ref=e709]: OSCAR® WINNER
+              - generic "One Battle After Another,Movie" [ref=e714]:
+                - generic [ref=e718]: One Battle After Another
+                - generic [ref=e722]: OSCAR® WINNER
+              - generic "A Thursday,Movie" [ref=e727]:
+                - generic [ref=e731]: A Thursday
+              - generic "Romeo Akbar Walter,Movie" [ref=e736]:
+                - generic [ref=e740]: Romeo Akbar Walter
+                - generic [ref=e744]: NEWLY ADDED
+              - generic "The Fall Guy,Movie" [ref=e749]:
+                - generic [ref=e753]: The Fall Guy
+            - button "" [ref=e754] [cursor=pointer]
+        - generic [ref=e758]:
+          - link "Crime Movies" [ref=e761] [cursor=pointer]:
+            - /url: /in/browse/reco-collection/crime-movies/reco-tpfy_CgECGgVDcmltZQ
+            - heading "Crime Movies" [level=2] [ref=e764]
+          - generic [ref=e766]:
+            - generic [ref=e767]:
+              - generic "One Battle After Another,Movie" [ref=e772]:
+                - generic [ref=e776]: One Battle After Another
+                - generic [ref=e780]: OSCAR® WINNER
+              - generic "The Wolf of Wall Street,Movie" [ref=e785]:
+                - generic [ref=e789]: The Wolf of Wall Street
+              - generic "Love Sonia,Movie" [ref=e794]:
+                - generic [ref=e798]: Love Sonia
+              - generic "Andhadhun,Movie" [ref=e803]:
+                - generic [ref=e807]: Andhadhun
+                - generic [ref=e811]: NEWLY ADDED
+              - generic "The Big Bull,Movie" [ref=e816]:
+                - generic [ref=e820]: The Big Bull
+              - generic "The Dark Knight,Movie" [ref=e825]:
+                - generic [ref=e829]: The Dark Knight
+              - generic "The Godfather,Movie" [ref=e834]:
+                - generic [ref=e838]: The Godfather
+              - generic "Cruella,Movie" [ref=e843]:
+                - generic [ref=e847]: Cruella
+              - generic "Joker,Movie" [ref=e852]:
+                - generic [ref=e856]: Joker
+              - generic "Gone Girl,Movie" [ref=e861]:
+                - generic [ref=e865]: Gone Girl
+            - button "" [ref=e866] [cursor=pointer]
+    - contentinfo [ref=e867]:
+      - generic [ref=e868]:
+        - generic [ref=e869]:
+          - heading "Company" [level=4] [ref=e870]
+          - list [ref=e871]:
+            - listitem [ref=e872]:
+              - link "About Us" [ref=e874] [cursor=pointer]:
+                - /url: https://www.hotstar.com/about-us/in
+                - generic [ref=e875]: About Us
+            - listitem [ref=e876]:
+              - link "Careers" [ref=e878] [cursor=pointer]:
+                - /url: https://careers.hotstar.com/
+                - generic [ref=e879]: Careers
+        - generic [ref=e880]:
+          - heading "View Website in" [level=4] [ref=e881]
+          - list [ref=e882]:
+            - listitem [ref=e883]:
+              - generic [ref=e884] [cursor=pointer]:
+                - generic [ref=e885]: 
+                - text: English
+        - generic [ref=e886]:
+          - heading "Need Help?" [level=4] [ref=e887]
+          - list [ref=e888]:
+            - listitem [ref=e889]:
+              - link "Visit Help Center" [ref=e891] [cursor=pointer]:
+                - /url: https://help.hotstar.com/in/en/support/home
+                - generic [ref=e892]: Visit Help Center
+            - listitem [ref=e893]:
+              - link "Share Feedback" [ref=e895] [cursor=pointer]:
+                - /url: https://help.hotstar.com/in/en/support/tickets/feedback
+                - generic [ref=e896]: Share Feedback
+        - generic [ref=e897]:
+          - heading "Connect with Us" [level=4] [ref=e898]
+          - list [ref=e899]:
+            - listitem [ref=e900]:
+              - link "Facebook" [ref=e902] [cursor=pointer]:
+                - /url: https://www.facebook.com/JioHotstar
+                - generic "Facebook" [ref=e903]: 
+            - listitem [ref=e904]:
+              - link "Twitter" [ref=e906] [cursor=pointer]:
+                - /url: https://x.com/jiohotstar
+                - generic "Twitter" [ref=e907]: 
+      - generic [ref=e908]:
+        - generic [ref=e909]:
+          - paragraph [ref=e911]: © 2026 STAR. All Rights Reserved.
+          - list [ref=e912]:
+            - listitem [ref=e913]:
+              - link "Terms Of Use" [ref=e915] [cursor=pointer]:
+                - /url: https://www.hotstar.com/tnc/in
+            - listitem [ref=e916]:
+              - link "Privacy Policy" [ref=e918] [cursor=pointer]:
+                - /url: https://www.hotstar.com/privacy-policy/in
+            - listitem [ref=e919]:
+              - link "FAQ" [ref=e921] [cursor=pointer]:
+                - /url: https://help.hotstar.com/in/en/support/home
+        - generic [ref=e922]:
+          - link "Get it on Google Play" [ref=e924] [cursor=pointer]:
+            - /url: https://play.google.com/store/apps/details?id=in.startv.hotstar
+            - img "Get it on Google Play" [ref=e927]
+          - link "Download on the App Store" [ref=e929] [cursor=pointer]:
+            - /url: https://itunes.apple.com/in/app/hotstar/id934459219?mt=8
+            - img "Download on the App Store" [ref=e932]
+  - alert [ref=e933]

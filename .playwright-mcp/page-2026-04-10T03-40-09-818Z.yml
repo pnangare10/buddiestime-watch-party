@@ -1,0 +1,19 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e11]:
+    - generic [ref=e12]:
+      - img "JioHotstar" [ref=e19] [cursor=pointer]
+      - heading "Who's watching?" [level=6] [ref=e22]
+      - button "Edit" [ref=e25] [cursor=pointer]:
+        - generic: 
+        - generic [ref=e27]: Edit
+    - generic [ref=e30]:
+      - button "Pranesh" [ref=e32] [cursor=pointer]:
+        - img [ref=e36]
+        - paragraph [ref=e37]: Pranesh
+      - button "Kids" [ref=e39] [cursor=pointer]:
+        - img [ref=e43]
+        - paragraph [ref=e44]: Kids
+      - generic [ref=e46]:
+        - generic [ref=e48] [cursor=pointer]: 
+        - paragraph [ref=e49]: Add
+  - alert [ref=e50]: JioHotstar - Watch TV Shows, Movies, Specials, Live Cricket & Football

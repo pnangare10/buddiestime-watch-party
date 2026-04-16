@@ -1,0 +1,55 @@
+- generic [ref=e1]:
+  - generic [ref=e4]:
+    - main [active]:
+      - generic:
+        - generic [ref=e945]:
+          - generic [ref=e995]:
+            - generic [ref=e996]:
+              - generic [ref=e997]:
+                - button "Back" [ref=e999] [cursor=pointer]:
+                  - generic [ref=e1001]: 
+                - button "Housefull 4" [ref=e1002] [cursor=pointer]:
+                  - heading [level=1] [ref=e1005]: Housefull 4
+              - generic [ref=e1007]:
+                - button "Quality Auto" [ref=e1008] [cursor=pointer]:
+                  - generic [ref=e1011]:
+                    - generic [ref=e1012]: 
+                    - paragraph [ref=e1014]: Quality
+                    - paragraph [ref=e1016]: Auto
+                - button "Audio & Subtitles" [ref=e1017] [cursor=pointer]:
+                  - generic [ref=e1020]:
+                    - generic [ref=e1021]: 
+                    - paragraph [ref=e1023]: Audio & Subtitles
+            - generic [ref=e1025]:
+              - generic [ref=e1027]:
+                - button "Current position" [ref=e1029] [cursor=pointer]:
+                  - button "Current position" [ref=e1033]
+                - generic [ref=e1046]: 01:40
+              - generic [ref=e1047]:
+                - generic [ref=e1048]:
+                  - generic [ref=e1049]:
+                    - button "Rewind 10 seconds" [ref=e1050] [cursor=pointer]:
+                      - generic [ref=e1052]: 
+                      - generic [ref=e1054]: "10"
+                    - button "Play" [ref=e1055] [cursor=pointer]:
+                      - generic [ref=e1057]: 
+                    - button "Forward 10 seconds" [ref=e1058] [cursor=pointer]:
+                      - generic [ref=e1060]: "10"
+                      - generic [ref=e1062]: 
+                  - button "Mute" [ref=e1066] [cursor=pointer]:
+                    - generic [ref=e1068]: 
+                - button "More Like This" [ref=e1071] [cursor=pointer]:
+                  - heading "More Like This" [level=2] [ref=e1074]
+                  - generic [ref=e1076]: 
+                - button "Go to full screen" [ref=e1079] [cursor=pointer]:
+                  - generic [ref=e1081]: 
+          - generic [ref=e1085]:
+            - button [ref=e1087] [cursor=pointer]:
+              - generic [ref=e1089]: 
+            - paragraph [ref=e1093]: Housefull 4
+          - img [ref=e1096]
+        - button [ref=e987] [cursor=pointer]:
+          - generic [ref=e989]: 
+        - button [ref=e992] [cursor=pointer]:
+          - generic [ref=e994]: 
+  - alert [ref=e933]: JioHotstar - Watch TV Shows, Movies, Specials, Live Cricket & Football

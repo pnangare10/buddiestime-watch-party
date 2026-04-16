@@ -1,0 +1,18 @@
+R_DEF: Internal format may change without notice
+local
+drawable bg_badge
+id action_switch_service
+id cardHotstar
+id cardNetflix
+id etRoom
+id etServer
+id fabParty
+id fullscreenContainer
+id tvStatus
+id webView
+layout activity_main
+layout activity_service_selector
+layout dialog_join_party
+menu menu_main
+string app_name
+style Theme.BuddiesTime

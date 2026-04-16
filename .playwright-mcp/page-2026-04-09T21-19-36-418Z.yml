@@ -1,0 +1,20 @@
+- generic [ref=e1]:
+  - heading "Watch Party — Test Page" [level=2] [ref=e2]
+  - generic [ref=e3]: ● Host
+  - generic [ref=e4]:
+    - button "Join as Host" [ref=e5] [cursor=pointer]
+    - button "Join as Guest" [ref=e6] [cursor=pointer]
+    - button "Leave" [ref=e7] [cursor=pointer]
+  - generic [ref=e8]:
+    - button "▶ Play" [active] [ref=e9] [cursor=pointer]
+    - button "⏸ Pause" [ref=e10] [cursor=pointer]
+    - button "⏩ Seek to 60s" [ref=e11] [cursor=pointer]
+  - generic [ref=e12]: "currentTime: 10.00s | paused: true"
+  - list [ref=e13]:
+    - listitem [ref=e14]: 21:18:33.979 WS open → joining room "playwright-test-room" as host
+    - listitem [ref=e15]: "21:18:33.981 {\"type\":\"joined\",\"role\":\"host\",\"clientId\":\"host-c59ew\"}"
+    - listitem [ref=e16]: 21:18:33.981 Joined as host
+    - listitem [ref=e17]: "21:18:53.347 {\"type\":\"sync-request\",\"from\":\"android-416632\"}"
+    - listitem [ref=e18]: 21:18:53.347 sync-response t=0.00 paused=true
+    - listitem [ref=e19]: 21:19:12.322 seek t=10.00
+    - listitem [ref=e20]: 21:19:35.388 play t=10.00

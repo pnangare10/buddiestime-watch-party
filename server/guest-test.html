@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Watch Party — Android Guest Test</title>
+  <style>
+    body { font-family: monospace; background: #111; color: #eee;
+           padding: 24px; margin: 0; }
+    h2 { color: #1a9; margin: 0 0 16px; font-size: 20px; }
+    #state-box {
+      background: #1a1a1a; border: 2px solid #1a9;
+      border-radius: 12px; padding: 20px; margin-bottom: 16px;
+    }
+    #state-label { font-size: 13px; color: #888; text-transform: uppercase;
+                   letter-spacing: 1px; margin-bottom: 8px; }
+    #time-display { font-size: 32px; color: #4af; font-weight: bold; margin-bottom: 4px; }
+    #paused-display { font-size: 18px; color: #fa4; }
+    #sync-flash {
+      display: none; background: #1a7; color: #fff;
+      padding: 10px 16px; border-radius: 8px; margin-bottom: 12px;
+      font-size: 14px; font-weight: bold;
+    }
+    #log-box { background: #1a1a1a; border: 1px solid #333;
+               border-radius: 8px; padding: 10px; height: 200px;
+               overflow-y: auto; font-size: 12px; }
+    #log-box li { list-style: none; padding: 3px 0;
+                  border-bottom: 1px solid #222; }
+    .sync  { color: #4f4; }
+    .info  { color: #888; }
+    .error { color: #f44; }
+  </style>
+</head>
+<body>
+  <h2>Watch Party — Android Guest</h2>
+
+  <div id="state-box">
+    <div id="state-label">Current video state (synced from host)</div>
+    <div id="time-display">t = 0.00s</div>
+    <div id="paused-display">⏸ PAUSED</div>
+  </div>
+
+  <div id="sync-flash">✔ SYNCED!</div>
+
+  <ul id="log-box"></ul>
+
+  <!-- Hidden fake video — HWP sync script targets this via querySelector('video') -->
+  <video id="v" style="display:none"></video>
+
+  <script>
+    const video = document.getElementById('v');
+
+    // Mock currentTime so it can be set even without a media source.
+    let _ct = 0;
+    Object.defineProperty(video, 'currentTime', {
+      get: () => _ct,
+      set: (t) => {
+        _ct = t;
+        updateDisplay();
+      },
+      configurable: true
+    });
+
+    // Mock paused so HWP_syncTo logic works correctly.
+    let _paused = true;
+    Object.defineProperty(video, 'paused', {
+      get: () => _paused,
+      configurable: true
+    });
+
+    // Intercept play/pause calls.
+    video.play  = () => { _paused = false; video.dispatchEvent(new Event('play'));  updateDisplay(); return Promise.resolve(); };
+    video.pause = () => { _paused = true;  video.dispatchEvent(new Event('pause')); updateDisplay(); };
+
+    function updateDisplay() {
+      document.getElementById('time-display').textContent =
+        't = ' + _ct.toFixed(2) + 's';
+      document.getElementById('paused-display').textContent =
+        _paused ? '⏸ PAUSED' : '▶ PLAYING';
+    }
+
+    // Flash the SYNCED indicator briefly.
+    function flashSynced() {
+      const el = document.getElementById('sync-flash');
+      el.style.display = 'block';
+      el.setAttribute('data-synced', Date.now());
+      setTimeout(() => { el.style.display = 'none'; }, 1500);
+    }
+
+    // Log helper.
+    function addLog(cls, msg) {
+      const li = document.createElement('li');
+      li.className = cls;
+      li.setAttribute('data-log', msg);
+      li.textContent = new Date().toISOString().slice(11, 23) + '  ' + msg;
+      const ul = document.getElementById('log-box');
+      ul.appendChild(li);
+      ul.scrollTop = ul.scrollHeight;
+    }
+
+    // Listen for events triggered by the HWP injected sync script.
+    video.addEventListener('play',   () => { addLog('sync', '▶ play  t=' + _ct.toFixed(2)); flashSynced(); });
+    video.addEventListener('pause',  () => { addLog('sync', '⏸ pause t=' + _ct.toFixed(2)); flashSynced(); });
+    video.addEventListener('seeked', () => { addLog('sync', '⏩ seek  t=' + _ct.toFixed(2)); flashSynced(); });
+
+    addLog('info', 'Page ready — waiting for HWP sync script injection');
+  </script>
+</body>
+</html>

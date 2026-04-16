@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node -e \"console.log\\('node works'\\)\")",
+      "Bash(node server.js)",
+      "Bash(node -e ':*)",
+      "Bash(pkill -f \"node server.js\")",
+      "Bash(curl -s http://localhost:8080/test-page.html)",
+      "Bash(netstat -ano)",
+      "Bash(awk '{print $5}')",
+      "Bash(xargs -r kill -9)",
+      "Bash(taskkill /F /PID 19984)",
+      "Bash(cmd /c \"taskkill /F /PID 19984\")",
+      "Bash(powershell -Command \"Stop-Process -Id 19984 -Force\")",
+      "mcp__plugin_playwright_playwright__browser_click",
+      "mcp__plugin_playwright_playwright__browser_tabs",
+      "mcp__plugin_playwright_playwright__browser_wait_for",
+      "Bash(gh repo:*)",
+      "Bash(where gh:*)",
+      "Read(//c/Users/prane_ii3rizl/AppData/Local/Programs//**)",
+      "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" auth login --web)"
+    ]
+  }
+}

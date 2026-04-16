@@ -1,4 +1,4 @@
-const DEFAULT_SERVER = 'ws://localhost:8080';
+const DEFAULT_SERVER = 'ws://192.168.0.102:8080';
 
 const $ = id => document.getElementById(id);
 
@@ -31,7 +31,7 @@ function startParty(role) {
   const clientId = role + '-' + Math.random().toString(36).slice(2, 7);
 
   chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
-    if (!tab || !tab.url.includes('hotstar.com')) {
+    if (!tab || (!tab.url.includes('hotstar.com') && !tab.url.includes('jiohotstar.com'))) {
       showMsg('Open a Hotstar page first!', 'red');
       return;
     }

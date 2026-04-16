@@ -1,0 +1,68 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e4]:
+    - main:
+      - generic [ref=e6]:
+        - generic [ref=e57]:
+          - generic [ref=e58]:
+            - generic [ref=e61]:
+              - paragraph [ref=e62]: Rated U/A 13+
+              - paragraph [ref=e63]: Smoking Visuals, Mild Language
+            - img "JioHotstar" [ref=e69] [cursor=pointer]
+          - generic [ref=e71]:
+            - generic [ref=e72]:
+              - text: 
+              - generic [ref=e74]:
+                - button "Hindi" [ref=e77] [cursor=pointer]:
+                  - generic [ref=e78]: Hindi
+                - button "Malayalam" [ref=e81] [cursor=pointer]:
+                  - generic [ref=e82]: Malayalam
+                - button "TamilOriginal" [ref=e85] [cursor=pointer]:
+                  - generic [ref=e86]: TamilOriginal
+                - button "Telugu" [ref=e89] [cursor=pointer]:
+                  - generic [ref=e90]: Telugu
+                - button "Kannada" [ref=e93] [cursor=pointer]:
+                  - generic [ref=e94]: Kannada
+              - text: 
+            - button [ref=e96] [cursor=pointer]:
+              - generic [ref=e98]: 
+        - generic [ref=e99]:
+          - generic [ref=e100]:
+            - generic [ref=e101]:
+              - button "Back" [ref=e103] [cursor=pointer]:
+                - generic [ref=e105]: 
+              - button "Thaai Kizhavi" [ref=e106] [cursor=pointer]:
+                - heading [level=1] [ref=e109]: Thaai Kizhavi
+            - generic [ref=e111]:
+              - button "Quality Auto" [ref=e112] [cursor=pointer]:
+                - generic [ref=e115]:
+                  - generic [ref=e116]: 
+                  - paragraph [ref=e118]: Quality
+                  - paragraph [ref=e120]: Auto
+              - button "Audio & Subtitles" [ref=e121] [cursor=pointer]:
+                - generic [ref=e124]:
+                  - generic [ref=e125]: 
+                  - paragraph [ref=e127]: Audio & Subtitles
+          - generic [ref=e129]:
+            - generic [ref=e131]:
+              - button "Current position" [ref=e133] [cursor=pointer]:
+                - button "Current position" [ref=e139]
+              - generic [ref=e166]: 2:22:40
+            - generic [ref=e167]:
+              - generic [ref=e168]:
+                - generic [ref=e169]:
+                  - button "Rewind 10 seconds" [ref=e170] [cursor=pointer]:
+                    - generic [ref=e172]: 
+                    - generic [ref=e174]: "10"
+                  - button "Pause" [ref=e175] [cursor=pointer]:
+                    - generic [ref=e177]: 
+                  - button "Forward 10 seconds" [ref=e178] [cursor=pointer]:
+                    - generic [ref=e180]: "10"
+                    - generic [ref=e182]: 
+                - button "Unmute" [ref=e186] [cursor=pointer]:
+                  - generic [ref=e188]: 
+              - button "More Like This" [ref=e191] [cursor=pointer]:
+                - heading "More Like This" [level=2] [ref=e194]
+                - generic [ref=e196]: 
+              - button "Go to full screen" [ref=e199] [cursor=pointer]:
+                - generic [ref=e201]: 
+  - alert [ref=e53]
