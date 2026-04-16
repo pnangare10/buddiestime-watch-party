@@ -25,11 +25,11 @@ sleep 4
 if [ "$SERVICE" = "netflix" ]; then
     echo "[ACTION] Tapping Netflix tile..." | tee -a "$LOG_FILE"
     # Approximate coordinates for Netflix card on Pixel 7 Pro
-    "$ADB" input tap 720 1200
+    "$ADB" shell input tap 720 1200
 else
     echo "[ACTION] Tapping Hotstar tile..." | tee -a "$LOG_FILE"
     # Approximate coordinates for Hotstar card on Pixel 7 Pro
-    "$ADB" input tap 720 600
+    "$ADB" shell input tap 720 600
 fi
 
 echo "[INFO] Waiting for MainActivity to load..." | tee -a "$LOG_FILE"
