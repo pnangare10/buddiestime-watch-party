@@ -247,13 +247,29 @@ class MainActivity : AppCompatActivity() {
             // automatically which Hotstar uses to detect WebView and show "Download the App".
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 if (request.isForMainFrame && !request.isRedirect) {
-                    view.loadUrl(request.url.toString(), mapOf("X-Requested-With" to ""))
+                    view.loadUrl(request.url.toString(), currentService?.headersOverride ?: mapOf("X-Requested-With" to ""))
                     return true
                 }
                 return false
             }
 
             override fun onPageFinished(view: WebView, url: String) {
+                // Set language/region for Netflix regional content availability
+                // Netflix uses accept-language and document language for region detection
+                view.evaluateJavascript("""
+                    (function() {
+                        // Set document language to en-IN for Indian region
+                        document.documentElement.lang = 'en-IN';
+                        // Override navigator language (some sites check this)
+                        Object.defineProperty(navigator, 'language', {
+                            value: 'en-IN',
+                            writable: false,
+                            configurable: true
+                        });
+                        console.log('[HWP] Language set to en-IN for regional availability');
+                    })();
+                """.trimIndent(), null)
+
                 // Re-inject on every page load; the __hwpNative guard prevents double init
                 // on SPA navigations that don't trigger a full reload.
                 view.evaluateJavascript(SYNC_SCRIPT, null)
