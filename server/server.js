@@ -12,8 +12,15 @@ const STATIC_ROUTES = {
   '/install.html': path.join(__dirname, '..', 'bookmarklet', 'install.html'),
 };
 
+const HEALTH_PATH = '/health';
+
 const httpServer = http.createServer((req, res) => {
   const url = new URL(req.url, `http://localhost`);
+  if (url.pathname === HEALTH_PATH) {
+    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    res.end('OK');
+    return;
+  }
   const filePath = STATIC_ROUTES[url.pathname];
   if (filePath) {
     fs.readFile(filePath, (err, data) => {
