@@ -21,7 +21,7 @@ class WatchPartyManager(
     private val onSyncRequested: () -> Unit,
     private val onStatusChange: (status: String) -> Unit
 ) {
-    var role: String? = null
+    @Volatile var role: String? = null
         private set
 
     private var ws: WebSocket? = null

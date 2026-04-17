@@ -87,9 +87,14 @@ function broadcast(roomId, sender, msg) {
   const room = rooms.get(roomId);
   if (!room) return;
   const data = JSON.stringify(msg);
+  let sent = 0;
   for (const [client] of room) {
     if (client !== sender && client.readyState === 1) {
       client.send(data);
+      sent++;
     }
+  }
+  if (msg.type !== 'sync-response') {
+    console.log(`[${roomId}] broadcast type=${msg.type} to ${sent} client(s)`);
   }
 }
