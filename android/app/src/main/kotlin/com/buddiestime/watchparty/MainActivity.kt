@@ -45,13 +45,12 @@ class MainActivity : AppCompatActivity() {
             window.__hwpNative = true;
 
             var DRIFT = 3;
-            var video = null;
-            var lastVideo = null;
+            var video = null;           // active video we sync to/from
+            var trackedVideos = [];     // all video elements we have listeners on
             var isSyncing = false;
             var isHost = false;
             var pollTimer = null;
-            // Buffer for sync commands that arrive before the video element exists
-            var pendingSync = null; // { time, paused } — applied when video first found
+            var pendingSync = null;
 
             /** Called by native after the room role is confirmed. */
             window.HWP_setRole = function(r) {
@@ -86,10 +85,7 @@ class MainActivity : AppCompatActivity() {
                 setTimeout(function() { isSyncing = false; }, 300);
             };
 
-            /**
-             * Host: called by native when a guest joins and needs the current state.
-             * Reports current time + paused state back via the JsBridge.
-             */
+            /** Host: reports current state when a guest joins. */
             window.HWP_reportState = function() {
                 var t = video ? video.currentTime : 0;
                 var p = video ? video.paused : true;
@@ -99,43 +95,68 @@ class MainActivity : AppCompatActivity() {
             /** Native calls this on disconnect to stop the poll loop. */
             window.HWP_stop = function() {
                 if (pollTimer) { clearTimeout(pollTimer); pollTimer = null; }
+                trackedVideos = [];
+                video = null;
                 window.__hwpNative = false;
             };
 
             function attachListeners(v) {
                 v.addEventListener('play', function() {
-                    console.log('[HWP] play event t=' + v.currentTime.toFixed(2) + ' host=' + isHost + ' syncing=' + isSyncing);
+                    console.log('[HWP] play t=' + v.currentTime.toFixed(2) + ' host=' + isHost + ' syncing=' + isSyncing + ' dur=' + v.duration.toFixed(1));
                     if (!isSyncing && isHost) HwpBridge.onVideoPlay(v.currentTime);
                 });
                 v.addEventListener('pause', function() {
-                    console.log('[HWP] pause event t=' + v.currentTime.toFixed(2) + ' host=' + isHost + ' syncing=' + isSyncing);
+                    console.log('[HWP] pause t=' + v.currentTime.toFixed(2) + ' host=' + isHost + ' syncing=' + isSyncing + ' dur=' + v.duration.toFixed(1));
                     if (!isSyncing && isHost) HwpBridge.onVideoPause(v.currentTime);
                 });
                 v.addEventListener('seeked', function() {
-                    console.log('[HWP] seeked event t=' + v.currentTime.toFixed(2) + ' host=' + isHost + ' syncing=' + isSyncing);
+                    console.log('[HWP] seeked t=' + v.currentTime.toFixed(2) + ' host=' + isHost + ' syncing=' + isSyncing + ' dur=' + v.duration.toFixed(1));
                     if (!isSyncing && isHost) HwpBridge.onVideoSeek(v.currentTime);
                 });
             }
 
-            // Continuous poll — detects both initial video load and video replacement
-            // when the user navigates to a different title inside the Hotstar SPA.
+            // Prefer the playing video; among paused ones prefer the longest duration
+            // (main content vs. ad/trailer). Skip elements removed from the DOM.
+            function getBestVideo() {
+                var best = null;
+                for (var i = 0; i < trackedVideos.length; i++) {
+                    var v = trackedVideos[i];
+                    if (!document.contains(v)) continue;
+                    if (!best) { best = v; continue; }
+                    if (!v.paused && best.paused) { best = v; continue; }
+                    if (v.duration > (best.duration || 0)) { best = v; }
+                }
+                return best;
+            }
+
+            // Poll for all video elements — services like Prime Video have multiple.
+            // Attach listeners to any new ones and keep the active reference current.
             function poll() {
-                var v = document.querySelector('video');
-                if (v && v !== lastVideo) {
-                    lastVideo = v;
-                    video = v;
-                    console.log('[HWP] video found, readyState=' + v.readyState + ' src=' + (v.src || v.currentSrc).slice(0,60));
-                    attachListeners(v);
-                    // Apply any sync command that arrived before the video element existed
+                var all = document.querySelectorAll('video');
+                for (var i = 0; i < all.length; i++) {
+                    var v = all[i];
+                    var known = false;
+                    for (var j = 0; j < trackedVideos.length; j++) {
+                        if (trackedVideos[j] === v) { known = true; break; }
+                    }
+                    if (!known) {
+                        trackedVideos.push(v);
+                        console.log('[HWP] video #' + trackedVideos.length + ' attached, dur=' + v.duration.toFixed(1));
+                        attachListeners(v);
+                    }
+                }
+                var best = getBestVideo();
+                if (best) {
+                    if (best !== video) {
+                        video = best;
+                        console.log('[HWP] active video: dur=' + best.duration.toFixed(1) + ' paused=' + best.paused);
+                    }
                     if (pendingSync) {
                         var ps = pendingSync;
                         pendingSync = null;
                         console.log('[HWP] applying pendingSync: t=' + ps.time + ' paused=' + ps.paused);
-                        if (ps.paused !== null) {
-                            HWP_syncTo(ps.time, ps.paused);
-                        } else {
-                            HWP_seekTo(ps.time);
-                        }
+                        if (ps.paused !== null) HWP_syncTo(ps.time, ps.paused);
+                        else HWP_seekTo(ps.time);
                     }
                 }
                 pollTimer = setTimeout(poll, 1000);
