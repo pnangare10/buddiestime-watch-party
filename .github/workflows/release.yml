@@ -32,6 +32,8 @@ jobs:
       - name: Build release APK
         working-directory: android
         env:
+          # Gradle's file() resolves relative to android/app/ (the module dir), so
+          # "release.keystore" correctly points to android/app/release.keystore
           KEYSTORE_PATH: release.keystore
           STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}

@@ -7,19 +7,12 @@ android {
     namespace 'com.buddiestime.watchparty'
     compileSdk 34
 
-    buildFeatures {
-        buildConfig true
-    }
-
     defaultConfig {
         applicationId "com.buddiestime.watchparty"
         minSdk 24
         targetSdk 34
         versionCode 1
         versionName "1.0"
-
-        // Replace YOUR_RAILWAY_URL with the actual Railway domain after deploying
-        buildConfigField "String", "SERVER_URL", '"wss://YOUR_RAILWAY_URL"'
     }
 
     signingConfigs {

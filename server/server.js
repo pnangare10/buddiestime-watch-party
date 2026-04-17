@@ -9,9 +9,7 @@ const rooms = new Map(); // roomId → Map<ws, { role: 'host'|'guest', id: strin
 // ── HTTP server: serves static HTML files ───────────────────────────────────
 const STATIC_ROUTES = {
   '/':             path.join(__dirname, 'index.html'),
-  '/install.html':    path.join(__dirname, '..', 'bookmarklet', 'install.html'),
-  '/test-page.html':  path.join(__dirname, 'test-page.html'),
-  '/guest-test.html': path.join(__dirname, 'guest-test.html'),
+  '/install.html': path.join(__dirname, '..', 'bookmarklet', 'install.html'),
 };
 
 const httpServer = http.createServer((req, res) => {
