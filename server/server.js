@@ -25,8 +25,8 @@ const httpServer = http.createServer((req, res) => {
     });
     return;
   }
-  res.writeHead(200, { 'Content-Type': 'text/plain' });
-  res.end('Hotstar Watch Party server running');
+  res.writeHead(404, { 'Content-Type': 'text/plain' });
+  res.end('Not found');
 });
 
 const wss = new WebSocketServer({ server: httpServer });
