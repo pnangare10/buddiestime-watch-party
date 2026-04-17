@@ -2,3 +2,13 @@ node_modules/
 *.log
 .DS_Store
 .worktrees/
+
+# Android build outputs
+android/.gradle/
+android/app/build/
+android/build/
+android/local.properties
+
+# Release keystore — never commit this
+release.keystore
+android/app/release.keystore

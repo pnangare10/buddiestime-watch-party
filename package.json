@@ -1,0 +1,14 @@
+{
+  "name": "buddiestime-watch-party",
+  "version": "1.0.0",
+  "description": "Watch party sync server",
+  "scripts": {
+    "start": "node server/server.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
