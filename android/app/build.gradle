@@ -18,15 +18,29 @@ android {
         versionCode 1
         versionName "1.0"
 
+        // Replace YOUR_RAILWAY_URL with the actual Railway domain after deploying
         buildConfigField "String", "SERVER_URL", '"wss://YOUR_RAILWAY_URL"'
     }
 
     signingConfigs {
         release {
-            storeFile     file(System.getenv("KEYSTORE_PATH")   ?: "release.keystore")
-            storePassword (System.getenv("STORE_PASSWORD")      ?: "")
-            keyAlias      (System.getenv("KEY_ALIAS")           ?: "")
-            keyPassword   (System.getenv("KEY_PASSWORD")        ?: "")
+            def ksPath  = System.getenv("KEYSTORE_PATH") ?: "release.keystore"
+            def ksPwd   = System.getenv("STORE_PASSWORD")
+            def kAlias  = System.getenv("KEY_ALIAS")
+            def kPwd    = System.getenv("KEY_PASSWORD")
+
+            if (gradle.startParameter.taskNames.any { it.contains("Release") }) {
+                if (!ksPwd || !kAlias || !kPwd) {
+                    throw new GradleException(
+                        "Release signing requires STORE_PASSWORD, KEY_ALIAS, and KEY_PASSWORD env vars"
+                    )
+                }
+            }
+
+            storeFile     file(ksPath)
+            storePassword (ksPwd ?: "")
+            keyAlias      (kAlias ?: "")
+            keyPassword   (kPwd ?: "")
         }
     }
 
