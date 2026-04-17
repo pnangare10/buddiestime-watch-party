@@ -22,8 +22,9 @@ jobs:
           distribution: 'temurin'
 
       - name: Decode keystore
-        run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/release.keystore
+        env:
+          KEYSTORE_B64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: echo "$KEYSTORE_B64" | base64 --decode > android/app/release.keystore
 
       - name: Make gradlew executable
         run: chmod +x android/gradlew
@@ -37,6 +38,10 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: ./gradlew assembleRelease
 
+      - name: Clean up keystore
+        if: always()
+        run: rm -f android/app/release.keystore
+
       - name: Rename APKs
         run: |
           VERSION="${GITHUB_REF_NAME}"
@@ -46,7 +51,7 @@ jobs:
              "buddiestime-watchparty-latest.apk"
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65  # v2
         with:
           generate_release_notes: true
           files: |
