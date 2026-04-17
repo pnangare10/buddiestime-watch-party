@@ -17,7 +17,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:inputType="textUri"
-            android:text="wss://YOUR_RAILWAY_URL" />
+            android:text="wss://buddiestime-watch-party.onrender.com" />
     </com.google.android.material.textfield.TextInputLayout>
 
     <com.google.android.material.textfield.TextInputLayout
