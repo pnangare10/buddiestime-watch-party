@@ -3,10 +3,8 @@
   "version": "1.0.0",
   "description": "Watch party sync server",
   "scripts": {
-    "start": "node server/server.js"
-  },
-  "dependencies": {
-    "ws": "^8.18.0"
+    "start": "node server/server.js",
+    "postinstall": "cd server && npm install"
   },
   "engines": {
     "node": ">=18"
