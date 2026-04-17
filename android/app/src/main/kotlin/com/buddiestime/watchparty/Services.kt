@@ -29,8 +29,35 @@ object NetflixService : StreamingService {
     )
 }
 
+object PrimeVideoService : StreamingService {
+    override val name = "primevideo"
+    override val displayName = "Prime Video"
+    override val url = "https://www.primevideo.com"
+    override val userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
+            "AppleWebKit/537.36 (KHTML, like Gecko) " +
+            "Chrome/124.0.0.0 Safari/537.36"
+    override val headersOverride = mapOf(
+        "X-Requested-With" to "",
+        "Accept-Language" to "en-IN,en;q=0.9"
+    )
+}
+
+object YouTubeService : StreamingService {
+    override val name = "youtube"
+    override val displayName = "YouTube"
+    override val url = "https://www.youtube.com"
+    override val userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
+            "AppleWebKit/537.36 (KHTML, like Gecko) " +
+            "Chrome/124.0.0.0 Safari/537.36"
+    override val headersOverride = mapOf(
+        "X-Requested-With" to "",
+        "Accept-Language" to "en-IN,en;q=0.9"
+    )
+}
+
 fun getStreamingService(name: String): StreamingService = when (name.lowercase()) {
-    "netflix" -> NetflixService
-    "hotstar" -> HotstarService
-    else -> HotstarService  // default fallback
+    "netflix"    -> NetflixService
+    "primevideo" -> PrimeVideoService
+    "youtube"    -> YouTubeService
+    else         -> HotstarService
 }

@@ -13,9 +13,14 @@ class ServiceSelectorActivity : AppCompatActivity() {
         findViewById<MaterialCardView>(R.id.cardHotstar).setOnClickListener {
             launchParty("hotstar")
         }
-
         findViewById<MaterialCardView>(R.id.cardNetflix).setOnClickListener {
             launchParty("netflix")
+        }
+        findViewById<MaterialCardView>(R.id.cardPrimeVideo).setOnClickListener {
+            launchParty("primevideo")
+        }
+        findViewById<MaterialCardView>(R.id.cardYouTube).setOnClickListener {
+            launchParty("youtube")
         }
     }
 
