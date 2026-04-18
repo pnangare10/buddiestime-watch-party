@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Watch Party — Join Room</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0f0f1a;
+      color: #e8e8f0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .card {
+      background: #1a1a2e;
+      border: 1px solid #2a2a40;
+      border-radius: 16px;
+      padding: 32px 28px;
+      max-width: 420px;
+      width: 100%;
+      text-align: center;
+    }
+    h1 { font-size: 20px; color: #fff; margin-bottom: 6px; }
+    .subtitle { font-size: 13px; color: #666; margin-bottom: 28px; }
+    .room-id {
+      font-size: 22px;
+      font-weight: 700;
+      color: #3d8ef0;
+      letter-spacing: 1px;
+      margin-bottom: 20px;
+    }
+    .info-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: #12122a;
+      border-radius: 10px;
+      padding: 12px 14px;
+      margin-bottom: 10px;
+      text-align: left;
+    }
+    .info-label { font-size: 11px; color: #666; text-transform: uppercase; letter-spacing: .4px; margin-bottom: 2px; }
+    .info-value { font-size: 13px; color: #ccc; word-break: break-all; }
+    .platform-dot {
+      width: 36px; height: 36px; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; font-weight: bold; color: #fff; flex-shrink: 0;
+    }
+    .dot-hotstar    { background: #ff6600; }
+    .dot-youtube    { background: #ff0000; }
+    .dot-primevideo { background: #00a8e1; }
+    .dot-netflix    { background: #e50914; }
+    .dot-unknown    { background: #444; }
+    button {
+      width: 100%;
+      margin-top: 20px;
+      padding: 13px;
+      border: none;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: opacity .15s;
+    }
+    #btn-join  { background: #1a9e6e; color: #fff; }
+    #btn-join:hover { opacity: .85; }
+    #btn-join:disabled { background: #333; color: #666; cursor: default; opacity: 1; }
+    .status { margin-top: 14px; font-size: 12px; color: #888; min-height: 18px; }
+    .error  { color: #e05; }
+    .hint   { margin-top: 16px; font-size: 11px; color: #555; line-height: 1.6; }
+    .hint a { color: #3d8ef0; }
+  </style>
+</head>
+<body>
+<div class="card">
+  <h1>Watch Party</h1>
+  <p class="subtitle">You've been invited to a watch party</p>
+
+  <div class="room-id" id="room-id-display">…</div>
+
+  <div class="info-row" id="platform-row" style="display:none">
+    <div class="platform-dot dot-unknown" id="platform-dot">?</div>
+    <div>
+      <div class="info-label">Platform</div>
+      <div class="info-value" id="platform-display">—</div>
+    </div>
+  </div>
+
+  <div class="info-row" id="video-row" style="display:none">
+    <div style="flex:1">
+      <div class="info-label">Video</div>
+      <div class="info-value" id="video-display">—</div>
+    </div>
+  </div>
+
+  <button id="btn-join" disabled>Loading room…</button>
+  <div class="status" id="status"></div>
+
+  <p class="hint">
+    Requires the <strong>Watch Party</strong> Chrome extension.<br>
+    Don't have it? <a href="/">Learn more</a>
+  </p>
+</div>
+
+<script>
+  const pathParts = window.location.pathname.split('/');
+  const roomId = decodeURIComponent(pathParts[pathParts.length - 1] || pathParts[pathParts.length - 2]);
+  document.getElementById('room-id-display').textContent = 'Room: ' + roomId;
+
+  const PLATFORM_LABELS = { hotstar: 'JioHotstar', youtube: 'YouTube', primevideo: 'Prime Video', netflix: 'Netflix' };
+  const PLATFORM_ICONS  = { hotstar: '★', youtube: '▶', primevideo: 'P', netflix: 'N' };
+
+  const wsProto = location.protocol === 'https:' ? 'wss' : 'ws';
+  const serverUrl = wsProto + '://' + location.host;
+  let videoUrl = null;
+  let platform = null;
+
+  const ws = new WebSocket(serverUrl);
+
+  ws.addEventListener('open', () => {
+    ws.send(JSON.stringify({ type: 'join', roomId, clientId: 'room-page-' + Math.random().toString(36).slice(2, 7) }));
+    document.getElementById('status').textContent = 'Connecting to room…';
+  });
+
+  ws.addEventListener('message', ({ data }) => {
+    let msg;
+    try { msg = JSON.parse(data); } catch { return; }
+
+    if (msg.type === 'joined') {
+      videoUrl = msg.videoUrl;
+      platform = msg.platform;
+
+      document.getElementById('room-id-display').textContent = 'Room: ' + roomId;
+
+      if (platform) {
+        const row = document.getElementById('platform-row');
+        const dot = document.getElementById('platform-dot');
+        row.style.display = 'flex';
+        dot.className = 'platform-dot dot-' + platform;
+        dot.textContent = PLATFORM_ICONS[platform] || '?';
+        document.getElementById('platform-display').textContent = PLATFORM_LABELS[platform] || platform;
+      }
+
+      if (videoUrl) {
+        document.getElementById('video-row').style.display = 'flex';
+        document.getElementById('video-display').textContent = videoUrl;
+      }
+
+      const btn = document.getElementById('btn-join');
+      if (videoUrl) {
+        btn.textContent = 'Open & Join';
+        btn.disabled = false;
+        document.getElementById('status').textContent = '';
+      } else {
+        btn.textContent = 'Host hasn\'t started a video yet';
+        document.getElementById('status').textContent = 'Waiting for host to pick a video…';
+      }
+
+      // Leave WS — we only needed the room state
+      ws.close();
+    }
+  });
+
+  ws.addEventListener('error', () => {
+    document.getElementById('status').innerHTML = '<span class="error">Could not reach the server.</span>';
+    document.getElementById('btn-join').textContent = 'Server unavailable';
+  });
+
+  ws.addEventListener('close', () => {
+    if (!videoUrl) {
+      document.getElementById('status').innerHTML = '<span class="error">Room not found or host disconnected.</span>';
+    }
+  });
+
+  document.getElementById('btn-join').addEventListener('click', () => {
+    if (!videoUrl) return;
+    // Store pendingJoin for the extension's content script to pick up after navigation
+    try {
+      chrome.storage.local.set({
+        pendingJoin: { serverUrl, roomId, clientId: 'guest-' + Math.random().toString(36).slice(2, 7), platform }
+      }, () => {
+        window.location.href = 'https://' + videoUrl;
+      });
+    } catch {
+      // Fallback if chrome.storage not available (e.g. non-extension context)
+      // Store in sessionStorage so content script can read it
+      sessionStorage.setItem('hwp_pendingJoin', JSON.stringify({
+        serverUrl, roomId, clientId: 'guest-' + Math.random().toString(36).slice(2, 7), platform
+      }));
+      window.location.href = 'https://' + videoUrl;
+    }
+  });
+</script>
+</body>
+</html>

@@ -1,18 +1,31 @@
 {
   "manifest_version": 3,
-  "name": "Hotstar Watch Party",
-  "version": "1.0.0",
-  "description": "Sync Hotstar playback with a partner in real time",
+  "name": "Watch Party",
+  "version": "1.1.0",
+  "description": "Sync streaming video playback with friends in real time",
   "permissions": ["storage", "tabs"],
   "host_permissions": [
     "*://*.hotstar.com/*",
     "*://*.jiohotstar.com/*",
+    "*://*.youtube.com/*",
+    "*://*.primevideo.com/*",
+    "*://*.amazon.com/*",
+    "*://*.amazon.in/*",
+    "*://*.netflix.com/*",
     "ws://*/*",
     "wss://*/*"
   ],
   "content_scripts": [
     {
-      "matches": ["*://*.hotstar.com/*", "*://*.jiohotstar.com/*"],
+      "matches": [
+        "*://*.hotstar.com/*",
+        "*://*.jiohotstar.com/*",
+        "*://*.youtube.com/*",
+        "*://*.primevideo.com/*",
+        "*://*.amazon.com/*",
+        "*://*.amazon.in/*",
+        "*://*.netflix.com/*"
+      ],
       "js": ["content.js"],
       "run_at": "document_idle"
     }

@@ -248,9 +248,10 @@ class MainActivity : AppCompatActivity() {
             // desktop UA forces the full web player to load.
             userAgentString = currentService?.userAgent
                 ?: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-            // Enable desktop-style viewport so the player renders at full width
-            useWideViewPort = true
-            loadWithOverviewMode = true
+            // Desktop UA ensures the full video player loads; viewport renders at device width
+            // so the page fits the mobile screen naturally rather than zooming out to desktop overview
+            useWideViewPort = false
+            loadWithOverviewMode = false
             // Allow cookies from Hotstar CDN subdomains (needed for login session)
             allowFileAccess = false
         }
