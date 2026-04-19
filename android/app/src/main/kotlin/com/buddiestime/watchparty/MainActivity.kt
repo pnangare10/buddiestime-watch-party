@@ -10,6 +10,7 @@ import android.view.View
 import android.webkit.*
 import android.widget.FrameLayout
 import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.buddiestime.watchparty.ServiceSelectorActivity
 import com.buddiestime.watchparty.StreamingService
@@ -32,69 +33,75 @@ class MainActivity : AppCompatActivity() {
     private var currentService: StreamingService? = null
 
     // Last sync command received — re-applied after each page load so the guest
-    // catches up even if the sync-response arrived before the page was ready.
+    // catches up even if the state-update arrived before the page was ready.
     private var lastSyncTime: Double? = null
     private var lastSyncPaused: Boolean? = null
 
-    // ── Injected JS that runs inside the Hotstar page ──────────────────────────
-    // Polls for the <video> element, attaches listeners (host only sends events),
-    // and exposes HWP_* functions that the native side can call via evaluateJavascript.
+    // Current WebView URL — updated on every page finish, read by JsBridge off main thread.
+    @Volatile private var currentPageUrl: String = ""
+
+    // ── Injected JS that runs inside the streaming page ───────────────────────
+    // Polls for <video> elements, attaches listeners (host sends state-update on
+    // every event + every 2s), and exposes HWP_* functions called by native.
     private val SYNC_SCRIPT = """
         (function() {
             if (window.__hwpNative) return;
             window.__hwpNative = true;
 
-            var DRIFT = 3;
-            var video = null;           // active video we sync to/from
-            var trackedVideos = [];     // all video elements we have listeners on
+            var DRIFT = 2;
+            var video = null;
+            var trackedVideos = [];
             var isSyncing = false;
             var isHost = false;
             var pollTimer = null;
+            var stateInterval = null;
             var pendingSync = null;
 
             /** Called by native after the room role is confirmed. */
             window.HWP_setRole = function(r) {
                 isHost = (r === 'host');
+                if (isHost) {
+                    if (stateInterval) clearInterval(stateInterval);
+                    stateInterval = setInterval(function() {
+                        if (!video) return;
+                        console.log('[HWP] periodic state-update: t=' + video.currentTime.toFixed(2) + ' paused=' + video.paused + ' url=' + window.location.href);
+                        HwpBridge.onStateUpdate(video.currentTime, video.paused, window.location.href);
+                    }, 2000);
+                }
             };
 
-            /** Guest: apply a play or pause command from the host. */
+            /** Guest: apply a state-update from the host — mirrors extension applySync logic. */
             window.HWP_syncTo = function(time, paused) {
                 if (!video) {
                     console.log('[HWP] syncTo buffered: t=' + time + ' paused=' + paused);
                     pendingSync = { time: time, paused: paused };
                     return;
                 }
-                console.log('[HWP] syncTo: t=' + time + ' paused=' + paused + ' cur=' + video.currentTime.toFixed(1));
-                isSyncing = true;
-                if (Math.abs(video.currentTime - time) > DRIFT) video.currentTime = time;
-                if (paused && !video.paused) video.pause();
-                else if (!paused && video.paused) video.play().catch(function() {});
-                setTimeout(function() { isSyncing = false; }, 300);
-            };
-
-            /** Guest: apply a seek command — preserves current play/pause state. */
-            window.HWP_seekTo = function(time) {
-                if (!video) {
-                    console.log('[HWP] seekTo buffered: t=' + time);
-                    pendingSync = { time: time, paused: pendingSync ? pendingSync.paused : null };
-                    return;
+                var drift = Math.abs(video.currentTime - time);
+                var pauseMismatch = video.paused !== paused;
+                console.log('[HWP] syncTo check: hostT=' + time.toFixed(2) + ' guestT=' + video.currentTime.toFixed(1) + ' drift=' + drift.toFixed(2) + ' pauseMismatch=' + pauseMismatch);
+                if (drift > DRIFT) {
+                    console.log('[HWP] drift exceeded — seeking + correcting pause');
+                    isSyncing = true;
+                    video.currentTime = time;
+                    if (paused && !video.paused) video.pause();
+                    else if (!paused && video.paused) video.play().catch(function() {});
+                    setTimeout(function() { isSyncing = false; }, 500);
+                } else if (pauseMismatch) {
+                    console.log('[HWP] pause mismatch — correcting pause state only');
+                    isSyncing = true;
+                    if (paused && !video.paused) video.pause();
+                    else if (!paused && video.paused) video.play().catch(function() {});
+                    setTimeout(function() { isSyncing = false; }, 500);
+                } else {
+                    console.log('[HWP] in sync — no correction needed');
                 }
-                console.log('[HWP] seekTo: t=' + time + ' cur=' + video.currentTime.toFixed(1));
-                isSyncing = true;
-                if (Math.abs(video.currentTime - time) > DRIFT) video.currentTime = time;
-                setTimeout(function() { isSyncing = false; }, 300);
             };
 
-            /** Host: reports current state when a guest joins. */
-            window.HWP_reportState = function() {
-                var t = video ? video.currentTime : 0;
-                var p = video ? video.paused : true;
-                HwpBridge.onVideoState(t, p);
-            };
-
-            /** Native calls this on disconnect to stop the poll loop. */
+            /** Native calls this on disconnect to stop all timers. */
             window.HWP_stop = function() {
-                if (pollTimer) { clearTimeout(pollTimer); pollTimer = null; }
+                if (pollTimer)     { clearTimeout(pollTimer);   pollTimer     = null; }
+                if (stateInterval) { clearInterval(stateInterval); stateInterval = null; }
                 trackedVideos = [];
                 video = null;
                 window.__hwpNative = false;
@@ -102,26 +109,27 @@ class MainActivity : AppCompatActivity() {
 
             function attachListeners(v) {
                 v.addEventListener('play', function() {
-                    console.log('[HWP] play t=' + v.currentTime.toFixed(2) + ' host=' + isHost + ' syncing=' + isSyncing + ' dur=' + v.duration.toFixed(1));
-                    if (!isSyncing && isHost) HwpBridge.onVideoPlay(v.currentTime);
+                    console.log('[HWP] play t=' + v.currentTime.toFixed(2) + ' host=' + isHost + ' syncing=' + isSyncing);
+                    if (!isSyncing && isHost) HwpBridge.onStateUpdate(v.currentTime, false, window.location.href);
                 });
                 v.addEventListener('pause', function() {
-                    console.log('[HWP] pause t=' + v.currentTime.toFixed(2) + ' host=' + isHost + ' syncing=' + isSyncing + ' dur=' + v.duration.toFixed(1));
-                    if (!isSyncing && isHost) HwpBridge.onVideoPause(v.currentTime);
+                    console.log('[HWP] pause t=' + v.currentTime.toFixed(2) + ' host=' + isHost + ' syncing=' + isSyncing);
+                    if (!isSyncing && isHost) HwpBridge.onStateUpdate(v.currentTime, true, window.location.href);
                 });
                 v.addEventListener('seeked', function() {
-                    console.log('[HWP] seeked t=' + v.currentTime.toFixed(2) + ' host=' + isHost + ' syncing=' + isSyncing + ' dur=' + v.duration.toFixed(1));
-                    if (!isSyncing && isHost) HwpBridge.onVideoSeek(v.currentTime);
+                    console.log('[HWP] seeked t=' + v.currentTime.toFixed(2) + ' host=' + isHost + ' syncing=' + isSyncing);
+                    if (!isSyncing && isHost) HwpBridge.onStateUpdate(v.currentTime, v.paused, window.location.href);
                 });
             }
 
-            // Prefer the playing video; among paused ones prefer the longest duration
-            // (main content vs. ad/trailer). Skip elements removed from the DOM.
+            // Only consider real content: readyState > 0 and duration > 1s (skips ads/previews).
+            // Among candidates prefer playing video; among paused prefer longest duration.
             function getBestVideo() {
                 var best = null;
                 for (var i = 0; i < trackedVideos.length; i++) {
                     var v = trackedVideos[i];
                     if (!document.contains(v)) continue;
+                    if (v.readyState <= 0 || v.duration <= 1) continue;
                     if (!best) { best = v; continue; }
                     if (!v.paused && best.paused) { best = v; continue; }
                     if (v.duration > (best.duration || 0)) { best = v; }
@@ -129,8 +137,7 @@ class MainActivity : AppCompatActivity() {
                 return best;
             }
 
-            // Poll for all video elements — services like Prime Video have multiple.
-            // Attach listeners to any new ones and keep the active reference current.
+            // Poll for all video elements — Prime Video has multiple.
             function poll() {
                 var all = document.querySelectorAll('video');
                 for (var i = 0; i < all.length; i++) {
@@ -141,7 +148,7 @@ class MainActivity : AppCompatActivity() {
                     }
                     if (!known) {
                         trackedVideos.push(v);
-                        console.log('[HWP] video #' + trackedVideos.length + ' attached, dur=' + v.duration.toFixed(1));
+                        console.log('[HWP] video #' + trackedVideos.length + ' found: readyState=' + v.readyState + ' dur=' + v.duration.toFixed(1));
                         attachListeners(v);
                     }
                 }
@@ -149,14 +156,13 @@ class MainActivity : AppCompatActivity() {
                 if (best) {
                     if (best !== video) {
                         video = best;
-                        console.log('[HWP] active video: dur=' + best.duration.toFixed(1) + ' paused=' + best.paused);
+                        console.log('[HWP] active video selected: dur=' + best.duration.toFixed(1) + ' readyState=' + best.readyState + ' paused=' + best.paused);
                     }
                     if (pendingSync) {
                         var ps = pendingSync;
                         pendingSync = null;
                         console.log('[HWP] applying pendingSync: t=' + ps.time + ' paused=' + ps.paused);
-                        if (ps.paused !== null) HWP_syncTo(ps.time, ps.paused);
-                        else HWP_seekTo(ps.time);
+                        HWP_syncTo(ps.time, ps.paused);
                     }
                 }
                 pollTimer = setTimeout(poll, 1000);
@@ -169,28 +175,10 @@ class MainActivity : AppCompatActivity() {
     // ── JS Bridge (called from inside the WebView page) ───────────────────────
 
     inner class JsBridge {
+        /** Called on every host video event (play/pause/seeked) and every 2s by the JS timer. */
         @JavascriptInterface
-        fun onVideoPlay(time: Double) {
-            manager?.sendVideoEvent("play", time)
-        }
-
-        @JavascriptInterface
-        fun onVideoPause(time: Double) {
-            manager?.sendVideoEvent("pause", time)
-        }
-
-        @JavascriptInterface
-        fun onVideoSeek(time: Double) {
-            manager?.sendVideoEvent("seek", time)
-        }
-
-        /**
-         * Host reports its current video state back to native so we can forward
-         * a sync-response to the server (which delivers it to the new guest).
-         */
-        @JavascriptInterface
-        fun onVideoState(time: Double, paused: Boolean) {
-            manager?.sendSyncResponse(time, paused)
+        fun onStateUpdate(time: Double, paused: Boolean, url: String) {
+            manager?.sendStateUpdate(time, paused, url)
         }
     }
 
@@ -275,7 +263,14 @@ class MainActivity : AppCompatActivity() {
                 return false
             }
 
+            // Catches SPA navigations (YouTube, Netflix pushState) that skip onPageFinished.
+            override fun doUpdateVisitedHistory(view: WebView, url: String, isReload: Boolean) {
+                currentPageUrl = url
+                super.doUpdateVisitedHistory(view, url, isReload)
+            }
+
             override fun onPageFinished(view: WebView, url: String) {
+                currentPageUrl = url
                 // Set language/region for Netflix regional content availability
                 // Netflix uses accept-language and document language for region detection
                 view.evaluateJavascript("""
@@ -343,25 +338,41 @@ class MainActivity : AppCompatActivity() {
         val etRoom = dialogView.findViewById<TextInputEditText>(R.id.etRoom)
 
         val dialog = AlertDialog.Builder(this)
-            .setTitle("Join Watch Party")
+            .setTitle("Watch Party")
             .setView(dialogView)
+            // Join: requires a room ID entered by the user
             .setPositiveButton("Join") { _, _ ->
                 val server = etServer.text?.toString()?.trim().orEmpty()
                 val room = etRoom.text?.toString()?.trim().orEmpty()
                 if (server.isNotEmpty() && room.isNotEmpty()) {
                     connectToParty(server, room)
+                } else {
+                    Toast.makeText(this, "Enter a room ID to join", Toast.LENGTH_SHORT).show()
+                }
+            }
+            // Create: auto-generate a room ID and become host
+            .setNeutralButton("Create") { _, _ ->
+                val server = etServer.text?.toString()?.trim().orEmpty()
+                if (server.isNotEmpty()) {
+                    val room = generateRoomId()
+                    connectToParty(server, room)
+                    Toast.makeText(this, "Room created: $room", Toast.LENGTH_LONG).show()
                 }
             }
             .setNegativeButton("Cancel", null)
             .create()
 
-        // Allow pressing "Done" on keyboard to submit the dialog
         etRoom.setOnEditorActionListener { _, _, _ ->
             dialog.getButton(AlertDialog.BUTTON_POSITIVE)?.performClick()
             true
         }
 
         dialog.show()
+    }
+
+    private fun generateRoomId(): String {
+        val chars = "abcdefghijklmnopqrstuvwxyz0123456789"
+        return (1..6).map { chars.random() }.joinToString("")
     }
 
     private fun showLeaveDialog() {
@@ -381,25 +392,30 @@ class MainActivity : AppCompatActivity() {
                 tvStatus.text = if (role == "host") "● Host" else "● Guest"
                 tvStatus.visibility = View.VISIBLE
             },
-            onSyncCommand = { time, paused ->
+            onSyncCommand = { time, paused, videoUrl, platform ->
                 lastSyncTime = time
                 lastSyncPaused = paused
-                webView.evaluateJavascript("HWP_syncTo($time, $paused)", null)
-            },
-            onSeekCommand = { time ->
-                webView.evaluateJavascript("HWP_seekTo($time)", null)
-            },
-            onSyncRequested = {
-                // A guest joined — ask JS for the current video state, which calls back
-                // JsBridge.onVideoState() → WatchPartyManager.sendSyncResponse()
-                webView.evaluateJavascript("HWP_reportState()", null)
+                // Switch platform if host is on a different service
+                if (platform.isNotEmpty() && platform != currentService?.name) {
+                    val newService = getStreamingService(platform)
+                    currentService = newService
+                    webView.settings.userAgentString = newService.userAgent
+                }
+                // Navigate to host's URL if we're not already there
+                if (videoUrl.isNotEmpty() && videoUrl != currentPageUrl) {
+                    webView.loadUrl(videoUrl, currentService?.headersOverride ?: mapOf("X-Requested-With" to ""))
+                    // onPageFinished will re-inject SYNC_SCRIPT and re-apply lastSyncTime/lastSyncPaused
+                } else {
+                    webView.evaluateJavascript("HWP_syncTo($time, $paused)", null)
+                }
             },
             onStatusChange = { status ->
                 tvStatus.text = status
                 tvStatus.visibility = View.VISIBLE
             }
         )
-        manager?.connect(serverUrl, room)
+        val platform = currentService?.name ?: "android"
+        manager?.connect(serverUrl, room, platform, currentPageUrl)
         tvStatus.text = "Connecting…"
         tvStatus.visibility = View.VISIBLE
     }
