@@ -3,6 +3,12 @@ node_modules/
 .DS_Store
 .worktrees/
 
+# Secrets — never commit
+.env
+.env.local
+server/.env
+server/.env.local
+
 # Android build outputs
 android/.gradle/
 android/app/build/

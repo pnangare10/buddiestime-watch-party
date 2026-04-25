@@ -72,3 +72,12 @@ Guests only seek to match the host if `Math.abs(guest.currentTime - host.time) >
 ### Bookmarklet vs extension
 
 The bookmarklet (`bookmarklet/bookmarklet.js`) is a self-contained IIFE with the same sync logic. `install.html` inlines a minified version of it into a `javascript:` href, with `server` and `room` values hardcoded by the host's share URL so the guest doesn't need to type anything.
+
+## graphify
+
+This project has a graphify knowledge graph at graphify-out/.
+
+Rules:
+- Before answering architecture or codebase questions, read graphify-out/GRAPH_REPORT.md for god nodes and community structure
+- If graphify-out/wiki/index.md exists, navigate it instead of reading raw files
+- After modifying code files in this session, run `graphify update .` to keep the graph current (AST-only, no API cost)
