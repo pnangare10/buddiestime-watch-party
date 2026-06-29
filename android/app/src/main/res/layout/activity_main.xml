@@ -43,4 +43,127 @@
         android:contentDescription="Watch Party"
         android:src="@android:drawable/ic_menu_share" />
 
+    <!-- FAB: mic — click toggle, hold = push-to-talk (visible only while connected) -->
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/fabMic"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|end"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="160dp"
+        android:contentDescription="Voice"
+        android:src="@android:drawable/ic_btn_speak_now"
+        android:visibility="gone" />
+
+    <!-- FAB: opens Chat dialog (visible only while connected) -->
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/fabChat"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|end"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="88dp"
+        android:contentDescription="Chat"
+        android:src="@android:drawable/sym_action_chat"
+        android:visibility="gone" />
+
+    <!-- Unread chat badge anchored to fabChat -->
+    <TextView
+        android:id="@+id/tvChatBadge"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|end"
+        android:layout_marginEnd="12dp"
+        android:layout_marginBottom="128dp"
+        android:background="@drawable/bg_badge"
+        android:paddingStart="6dp"
+        android:paddingEnd="6dp"
+        android:paddingTop="2dp"
+        android:paddingBottom="2dp"
+        android:textColor="#FFFFFF"
+        android:textSize="10sp"
+        android:textStyle="bold"
+        android:visibility="gone" />
+
+    <!-- Transparent chat overlay (bottom-left). Last child = top of z-order. -->
+    <LinearLayout
+        android:id="@+id/chatOverlay"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|start"
+        android:layout_marginStart="14dp"
+        android:layout_marginBottom="16dp"
+        android:layout_marginEnd="72dp"
+        android:orientation="vertical"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/tvOverlayPeers"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:paddingBottom="6dp"
+            android:textColor="#FFFFFF"
+            android:textSize="11sp"
+            android:shadowColor="#000000"
+            android:shadowDx="0"
+            android:shadowDy="1"
+            android:shadowRadius="3"
+            android:visibility="gone" />
+
+        <androidx.core.widget.NestedScrollView
+            android:id="@+id/svOverlay"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:maxHeight="180dp"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:id="@+id/llOverlayMessages"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="vertical" />
+        </androidx.core.widget.NestedScrollView>
+
+        <TextView
+            android:id="@+id/tvOverlayAmbient"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:maxWidth="280dp"
+            android:textColor="#FFFFFF"
+            android:textSize="14sp"
+            android:shadowColor="#000000"
+            android:shadowDx="0"
+            android:shadowDy="1"
+            android:shadowRadius="4"
+            android:visibility="gone" />
+
+        <LinearLayout
+            android:id="@+id/rowOverlayInput"
+            android:layout_width="280dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:orientation="horizontal"
+            android:visibility="gone">
+
+            <EditText
+                android:id="@+id/etOverlayInput"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@android:color/transparent"
+                android:hint="Message…"
+                android:textColorHint="#BBFFFFFF"
+                android:textColor="#FFFFFF"
+                android:textSize="14sp"
+                android:shadowColor="#000000"
+                android:shadowDx="0"
+                android:shadowDy="1"
+                android:shadowRadius="4"
+                android:inputType="text"
+                android:maxLength="500"
+                android:imeOptions="actionSend"
+                android:singleLine="true"
+                android:importantForAutofill="no" />
+        </LinearLayout>
+    </LinearLayout>
+
 </FrameLayout>
