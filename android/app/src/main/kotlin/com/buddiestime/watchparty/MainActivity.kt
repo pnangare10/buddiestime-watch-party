@@ -1,48 +1,75 @@
 package com.buddiestime.watchparty
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.app.AlertDialog
+import android.content.Context
 import android.content.Intent
+import android.content.SharedPreferences
+import android.content.pm.PackageManager
+import android.graphics.Color
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.util.Log
+import android.util.TypedValue
 import android.view.Menu
 import android.view.MenuItem
+import android.view.MotionEvent
 import android.view.View
+import android.view.ViewGroup
 import android.webkit.*
 import android.widget.FrameLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import com.buddiestime.watchparty.ServiceSelectorActivity
 import com.buddiestime.watchparty.StreamingService
 import com.buddiestime.watchparty.getStreamingService
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.google.android.material.textfield.TextInputEditText
 
+private const val TAG = "HWP-MAIN"
+private const val PREFS = "hwp_prefs"
+private const val KEY_NAME = "displayName"
+
 class MainActivity : AppCompatActivity() {
 
     private lateinit var webView: WebView
     private lateinit var fabParty: FloatingActionButton
+    private lateinit var fabChat: FloatingActionButton
+    private lateinit var fabMic: FloatingActionButton
     private lateinit var tvStatus: TextView
+    private lateinit var tvChatBadge: TextView
+    private var voice: VoiceManager? = null
+    private var voiceStatus: VoiceManager.VoiceStatus = VoiceManager.VoiceStatus.IDLE
+    private var micLatched = false
+    private var micWasHold = false
+    private val micHoldHandler = Handler(Looper.getMainLooper())
+    private var micHoldRunnable: Runnable? = null
+    private var pendingVoiceToken: Triple<String, String, String>? = null   // token, url, lkRoom
+    private val RC_MIC = 42
     private lateinit var fullscreenContainer: FrameLayout
+    private lateinit var prefs: SharedPreferences
 
-    // Holds the View that Hotstar pushes into fullscreen mode
     private var fullscreenView: View? = null
     private var fullscreenCallback: WebChromeClient.CustomViewCallback? = null
 
     private var manager: WatchPartyManager? = null
     private var currentService: StreamingService? = null
 
-    // Last sync command received — re-applied after each page load so the guest
-    // catches up even if the state-update arrived before the page was ready.
     private var lastSyncTime: Double? = null
     private var lastSyncPaused: Boolean? = null
 
-    // Current WebView URL — updated on every page finish, read by JsBridge off main thread.
     @Volatile private var currentPageUrl: String = ""
 
-    // ── Injected JS that runs inside the streaming page ───────────────────────
-    // Polls for <video> elements, attaches listeners (host sends state-update on
-    // every event + every 2s), and exposes HWP_* functions called by native.
+    // Chat state
+    private var participants: List<Participant> = emptyList()
+    private var unreadChatCount = 0
+    private lateinit var chatOverlay: ChatOverlayController
+
     private val SYNC_SCRIPT = """
         (function() {
             if (window.__hwpNative) return;
@@ -57,7 +84,6 @@ class MainActivity : AppCompatActivity() {
             var stateInterval = null;
             var pendingSync = null;
 
-            /** Called by native after the room role is confirmed. */
             window.HWP_setRole = function(r) {
                 isHost = (r === 'host');
                 if (isHost) {
@@ -70,7 +96,6 @@ class MainActivity : AppCompatActivity() {
                 }
             };
 
-            /** Guest: apply a state-update from the host — mirrors extension applySync logic. */
             window.HWP_syncTo = function(time, paused) {
                 if (!video) {
                     console.log('[HWP] syncTo buffered: t=' + time + ' paused=' + paused);
@@ -98,7 +123,6 @@ class MainActivity : AppCompatActivity() {
                 }
             };
 
-            /** Native calls this on disconnect to stop all timers. */
             window.HWP_stop = function() {
                 if (pollTimer)     { clearTimeout(pollTimer);   pollTimer     = null; }
                 if (stateInterval) { clearInterval(stateInterval); stateInterval = null; }
@@ -122,8 +146,6 @@ class MainActivity : AppCompatActivity() {
                 });
             }
 
-            // Only consider real content: readyState > 0 and duration > 1s (skips ads/previews).
-            // Among candidates prefer playing video; among paused prefer longest duration.
             function getBestVideo() {
                 var best = null;
                 for (var i = 0; i < trackedVideos.length; i++) {
@@ -137,7 +159,6 @@ class MainActivity : AppCompatActivity() {
                 return best;
             }
 
-            // Poll for all video elements — Prime Video has multiple.
             function poll() {
                 var all = document.querySelectorAll('video');
                 for (var i = 0; i < all.length; i++) {
@@ -172,54 +193,79 @@ class MainActivity : AppCompatActivity() {
         })();
     """.trimIndent()
 
-    // ── JS Bridge (called from inside the WebView page) ───────────────────────
-
     inner class JsBridge {
-        /** Called on every host video event (play/pause/seeked) and every 2s by the JS timer. */
         @JavascriptInterface
         fun onStateUpdate(time: Double, paused: Boolean, url: String) {
+            Log.d(TAG, "JsBridge.onStateUpdate t=${"%.2f".format(time)} paused=$paused url=$url")
             manager?.sendStateUpdate(time, paused, url)
         }
     }
 
-    // ── Activity lifecycle ────────────────────────────────────────────────────
-
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
-        // Read selected service from intent
         val serviceName = intent.getStringExtra("service") ?: "hotstar"
         currentService = getStreamingService(serviceName)
+        Log.d(TAG, "onCreate — service=$serviceName storedName=\"${prefs.getString(KEY_NAME, "")}\"")
 
         setContentView(R.layout.activity_main)
 
         webView = findViewById(R.id.webView)
         fabParty = findViewById(R.id.fabParty)
+        fabChat = findViewById(R.id.fabChat)
+        fabMic = findViewById(R.id.fabMic)
         tvStatus = findViewById(R.id.tvStatus)
+        tvChatBadge = findViewById(R.id.tvChatBadge)
         fullscreenContainer = findViewById(R.id.fullscreenContainer)
+
+        chatOverlay = ChatOverlayController(
+            overlayRoot = findViewById(R.id.chatOverlay),
+            ambientView = findViewById(R.id.tvOverlayAmbient),
+            peersView = findViewById(R.id.tvOverlayPeers),
+            scrollView = findViewById(R.id.svOverlay),
+            messagesContainer = findViewById(R.id.llOverlayMessages),
+            inputRow = findViewById(R.id.rowOverlayInput),
+            inputField = findViewById(R.id.etOverlayInput),
+            ownDisplayName = { prefs.getString(KEY_NAME, "")?.trim().orEmpty() },
+            onSend = { text ->
+                val ok = manager?.isConnected() == true
+                if (ok) manager?.sendChat(text)
+                ok
+            },
+            onUnread = {
+                unreadChatCount++
+                tvChatBadge.text = unreadChatCount.toString()
+                tvChatBadge.visibility = View.VISIBLE
+            },
+            onExpandedChanged = { expanded ->
+                if (expanded) {
+                    unreadChatCount = 0
+                    tvChatBadge.visibility = View.GONE
+                }
+            }
+        )
 
         setupWebView()
 
         fabParty.setOnClickListener {
             if (manager?.isConnected() == true) showLeaveDialog() else showJoinDialog()
         }
-
-        // Debug: --es hwp_url http://... overrides the selected service URL.
-        val startUrl = intent.getStringExtra("hwp_url") ?: currentService?.url ?: "https://www.hotstar.com"
-        // Load the selected service's URL with its headers
-        currentService?.let { service ->
-            webView.loadUrl(startUrl, service.headersOverride)
-        } ?: run {
-            // Fallback if no service (shouldn't happen, but safe)
-            webView.loadUrl(startUrl, mapOf("X-Requested-With" to ""))
+        fabChat.setOnClickListener {
+            Log.d(TAG, "fabChat click → toggle overlay")
+            chatOverlay.toggle()
         }
+        setupMicButton()
 
-        // Debug shortcut: launch with --es hwp_server ws://... --es hwp_room roomId
-        // to skip the dialog and auto-connect (useful for adb testing).
+        val startUrl = intent.getStringExtra("hwp_url") ?: currentService?.url ?: "https://www.hotstar.com"
+        currentService?.let { service -> webView.loadUrl(startUrl, service.headersOverride) }
+            ?: webView.loadUrl(startUrl, mapOf("X-Requested-With" to ""))
+
         val testServer = intent.getStringExtra("hwp_server")
         val testRoom   = intent.getStringExtra("hwp_room")
         if (testServer != null && testRoom != null) {
+            Log.d(TAG, "debug auto-connect: $testServer / $testRoom")
             connectToParty(testServer, testRoom)
         }
     }
@@ -230,21 +276,14 @@ class MainActivity : AppCompatActivity() {
             javaScriptEnabled = true
             domStorageEnabled = true
             databaseEnabled = true
-            // Required so video can autoplay when we call .play() from JS
             mediaPlaybackRequiresUserGesture = false
-            // Spoof a Desktop Chrome UA — streaming services show "download app" to mobile UAs;
-            // desktop UA forces the full web player to load.
             userAgentString = currentService?.userAgent
                 ?: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-            // Desktop UA ensures the full video player loads; viewport renders at device width
-            // so the page fits the mobile screen naturally rather than zooming out to desktop overview
             useWideViewPort = false
             loadWithOverviewMode = false
-            // Allow cookies from Hotstar CDN subdomains (needed for login session)
             allowFileAccess = false
         }
 
-        // Persist login cookies across app restarts
         CookieManager.getInstance().apply {
             setAcceptCookie(true)
             setAcceptThirdPartyCookies(webView, true)
@@ -253,8 +292,6 @@ class MainActivity : AppCompatActivity() {
         webView.addJavascriptInterface(JsBridge(), "HwpBridge")
 
         webView.webViewClient = object : WebViewClient() {
-            // Suppress X-Requested-With on every navigation — WebView adds the app package name
-            // automatically which Hotstar uses to detect WebView and show "Download the App".
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 if (request.isForMainFrame && !request.isRedirect) {
                     view.loadUrl(request.url.toString(), currentService?.headersOverride ?: mapOf("X-Requested-With" to ""))
@@ -263,7 +300,6 @@ class MainActivity : AppCompatActivity() {
                 return false
             }
 
-            // Catches SPA navigations (YouTube, Netflix pushState) that skip onPageFinished.
             override fun doUpdateVisitedHistory(view: WebView, url: String, isReload: Boolean) {
                 currentPageUrl = url
                 super.doUpdateVisitedHistory(view, url, isReload)
@@ -271,29 +307,17 @@ class MainActivity : AppCompatActivity() {
 
             override fun onPageFinished(view: WebView, url: String) {
                 currentPageUrl = url
-                // Set language/region for Netflix regional content availability
-                // Netflix uses accept-language and document language for region detection
+                Log.d(TAG, "onPageFinished url=$url")
                 view.evaluateJavascript("""
                     (function() {
-                        // Set document language to en-IN for Indian region
                         document.documentElement.lang = 'en-IN';
-                        // Override navigator language (some sites check this)
-                        Object.defineProperty(navigator, 'language', {
-                            value: 'en-IN',
-                            writable: false,
-                            configurable: true
-                        });
-                        console.log('[HWP] Language set to en-IN for regional availability');
+                        Object.defineProperty(navigator, 'language', { value: 'en-IN', writable: false, configurable: true });
+                        console.log('[HWP] Language set to en-IN');
                     })();
                 """.trimIndent(), null)
 
-                // Re-inject on every page load; the __hwpNative guard prevents double init
-                // on SPA navigations that don't trigger a full reload.
                 view.evaluateJavascript(SYNC_SCRIPT, null)
-                // Re-apply role if we're already in a party (page reload mid-session)
                 manager?.role?.let { view.evaluateJavascript("HWP_setRole('$it')", null) }
-                // Re-apply last sync command so guest catches up even if sync-response
-                // arrived before the page was ready to receive it.
                 val t = lastSyncTime
                 val p = lastSyncPaused
                 if (t != null && p != null && manager?.role == "guest") {
@@ -303,12 +327,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         webView.webChromeClient = object : WebChromeClient() {
-            // Grant Widevine DRM (RESOURCE_PROTECTED_MEDIA_ID) — needed for Hotstar streams
-            override fun onPermissionRequest(request: PermissionRequest) {
-                request.grant(request.resources)
-            }
-
-            // Enter native fullscreen when Hotstar expands the player
+            override fun onPermissionRequest(request: PermissionRequest) { request.grant(request.resources) }
             override fun onShowCustomView(view: View, callback: CustomViewCallback) {
                 fullscreenView = view
                 fullscreenCallback = callback
@@ -317,7 +336,6 @@ class MainActivity : AppCompatActivity() {
                 webView.visibility = View.GONE
                 hideSystemUi()
             }
-
             override fun onHideCustomView() {
                 fullscreenView?.let { fullscreenContainer.removeView(it) }
                 fullscreenView = null
@@ -333,6 +351,7 @@ class MainActivity : AppCompatActivity() {
     // ── Party management ──────────────────────────────────────────────────────
 
     private fun showJoinDialog() {
+        Log.d(TAG, "showJoinDialog")
         val dialogView = layoutInflater.inflate(R.layout.dialog_join_party, null)
         val etServer = dialogView.findViewById<TextInputEditText>(R.id.etServer)
         val etRoom = dialogView.findViewById<TextInputEditText>(R.id.etRoom)
@@ -340,21 +359,18 @@ class MainActivity : AppCompatActivity() {
         val dialog = AlertDialog.Builder(this)
             .setTitle("Watch Party")
             .setView(dialogView)
-            // Join: requires a room ID entered by the user
             .setPositiveButton("Join") { _, _ ->
                 val server = etServer.text?.toString()?.trim().orEmpty()
                 val room = etRoom.text?.toString()?.trim().orEmpty()
-                if (server.isNotEmpty() && room.isNotEmpty()) {
-                    connectToParty(server, room)
-                } else {
-                    Toast.makeText(this, "Enter a room ID to join", Toast.LENGTH_SHORT).show()
-                }
+                Log.d(TAG, "Join click server=$server room=$room")
+                if (server.isNotEmpty() && room.isNotEmpty()) connectToParty(server, room)
+                else Toast.makeText(this, "Enter a room ID to join", Toast.LENGTH_SHORT).show()
             }
-            // Create: auto-generate a room ID and become host
             .setNeutralButton("Create") { _, _ ->
                 val server = etServer.text?.toString()?.trim().orEmpty()
                 if (server.isNotEmpty()) {
                     val room = generateRoomId()
+                    Log.d(TAG, "Create click server=$server generatedRoom=$room")
                     connectToParty(server, room)
                     Toast.makeText(this, "Room created: $room", Toast.LENGTH_LONG).show()
                 }
@@ -366,7 +382,6 @@ class MainActivity : AppCompatActivity() {
             dialog.getButton(AlertDialog.BUTTON_POSITIVE)?.performClick()
             true
         }
-
         dialog.show()
     }
 
@@ -386,50 +401,91 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun connectToParty(serverUrl: String, room: String) {
+        val name = prefs.getString(KEY_NAME, "")?.trim().orEmpty()
+        Log.d(TAG, "connectToParty server=$serverUrl room=$room storedName=\"$name\"")
+        if (name.isEmpty()) {
+            Log.w(TAG, "connectToParty: no stored name — aborting and sending user back to selector")
+            Toast.makeText(this, "Enter your name first (App > restart and pick a name)", Toast.LENGTH_LONG).show()
+            return
+        }
+
         manager = WatchPartyManager(
             onRoleAssigned = { role ->
+                Log.d(TAG, "onRoleAssigned role=$role")
                 webView.evaluateJavascript("HWP_setRole('$role')", null)
                 tvStatus.text = if (role == "host") "● Host" else "● Guest"
                 tvStatus.visibility = View.VISIBLE
+                fabChat.visibility = View.VISIBLE
+                chatOverlay.show()
+                fabMic.visibility = View.VISIBLE
+                updateMicAppearance()
             },
             onSyncCommand = { time, paused, videoUrl, platform ->
                 lastSyncTime = time
                 lastSyncPaused = paused
-                // Switch platform if host is on a different service
                 if (platform.isNotEmpty() && platform != currentService?.name) {
                     val newService = getStreamingService(platform)
                     currentService = newService
                     webView.settings.userAgentString = newService.userAgent
                 }
-                // Navigate to host's URL if we're not already there
                 if (videoUrl.isNotEmpty() && videoUrl != currentPageUrl) {
                     webView.loadUrl(videoUrl, currentService?.headersOverride ?: mapOf("X-Requested-With" to ""))
-                    // onPageFinished will re-inject SYNC_SCRIPT and re-apply lastSyncTime/lastSyncPaused
                 } else {
                     webView.evaluateJavascript("HWP_syncTo($time, $paused)", null)
                 }
             },
             onStatusChange = { status ->
+                Log.d(TAG, "onStatusChange status=\"$status\"")
                 tvStatus.text = status
                 tvStatus.visibility = View.VISIBLE
+            },
+            onChatMessage = { m ->
+                Log.d(TAG, "onChatMessage from ${m.name}(${m.from}): \"${m.text.take(80)}\"")
+                chatOverlay.onIncoming(m)
+            },
+            onParticipantsChange = { list ->
+                Log.d(TAG, "onParticipantsChange count=${list.size}")
+                participants = list
+                chatOverlay.setPeers(list)
+            },
+            onServerError = { reason, detail ->
+                Log.w(TAG, "onServerError reason=$reason detail=$detail")
+                Toast.makeText(this, "Server: $reason — $detail", Toast.LENGTH_LONG).show()
+            },
+            onVoiceToken = { token, url, lkRoom ->
+                Log.d(TAG, "onVoiceToken lkRoom=$lkRoom → joining LK")
+                ensureVoice().joinVoice(url, token)
+            },
+            onVoiceParticipants = { list ->
+                Log.d(TAG, "onVoiceParticipants count=${list.size}")
             }
         )
+
         val platform = currentService?.name ?: "android"
-        manager?.connect(serverUrl, room, platform, currentPageUrl)
+        manager?.connect(serverUrl, room, platform, currentPageUrl, name)
         tvStatus.text = "Connecting…"
         tvStatus.visibility = View.VISIBLE
     }
 
     private fun leaveParty() {
+        Log.d(TAG, "leaveParty()")
         manager?.disconnect()
         manager = null
         lastSyncTime = null
         lastSyncPaused = null
         tvStatus.visibility = View.GONE
+        fabChat.visibility = View.GONE
+        fabMic.visibility = View.GONE
+        voice?.dispose()
+        voice = null
+        voiceStatus = VoiceManager.VoiceStatus.IDLE
+        micLatched = false
+        tvChatBadge.visibility = View.GONE
+        participants = emptyList()
+        unreadChatCount = 0
+        chatOverlay.reset()
         webView.evaluateJavascript("if (window.HWP_stop) HWP_stop();", null)
     }
-
-    // ── System UI helpers ─────────────────────────────────────────────────────
 
     @Suppress("DEPRECATION")
     private fun hideSystemUi() {
@@ -444,13 +500,10 @@ class MainActivity : AppCompatActivity() {
         window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_VISIBLE
     }
 
-    // ── Back button ───────────────────────────────────────────────────────────
-
     @Suppress("DEPRECATION")
     override fun onBackPressed() {
         when {
             fullscreenView != null -> {
-                // Exit fullscreen player first
                 fullscreenView?.let { fullscreenContainer.removeView(it) }
                 fullscreenView = null
                 fullscreenCallback?.onCustomViewHidden()
@@ -464,11 +517,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    override fun onDestroy() {
-        super.onDestroy()
-        manager?.disconnect()
-        webView.destroy()
-    }
+    // onDestroy is defined below with voice-manager cleanup.
 
     override fun onCreateOptionsMenu(menu: Menu?): Boolean {
         menuInflater.inflate(R.menu.menu_main, menu)
@@ -478,12 +527,134 @@ class MainActivity : AppCompatActivity() {
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
             R.id.action_switch_service -> {
-                leaveParty()  // Disconnect from current party
+                leaveParty()
                 startActivity(Intent(this, ServiceSelectorActivity::class.java))
-                finish()  // Close MainActivity, return to selector
+                finish()
                 true
             }
             else -> super.onOptionsItemSelected(item)
         }
+    }
+
+    // ── Voice (LiveKit) ───────────────────────────────────────────────────────
+
+    private fun ensureVoice(): VoiceManager {
+        voice?.let { return it }
+        Log.d(TAG, "ensureVoice() — creating new VoiceManager")
+        val vm = VoiceManager(
+            context = this,
+            onStatusChange = { s ->
+                Log.d(TAG, "voice status → $s")
+                voiceStatus = s
+                runOnUiThread { updateMicAppearance() }
+                if (s == VoiceManager.VoiceStatus.DISCONNECTED) {
+                    micLatched = false
+                }
+            },
+            onSpeakersChange = { ids -> Log.d(TAG, "voice speakers=$ids") },
+            onError = { msg ->
+                Log.w(TAG, "voice error: $msg")
+                runOnUiThread { Toast.makeText(this, "Voice: $msg", Toast.LENGTH_LONG).show() }
+            }
+        )
+        voice = vm
+        return vm
+    }
+
+    @SuppressLint("ClickableViewAccessibility")
+    private fun setupMicButton() {
+        Log.d(TAG, "setupMicButton()")
+        fabMic.setOnTouchListener { _, e ->
+            when (e.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    Log.d(TAG, "mic ACTION_DOWN — voiceStatus=$voiceStatus")
+                    if (voiceStatus == VoiceManager.VoiceStatus.IDLE || voiceStatus == VoiceManager.VoiceStatus.DISCONNECTED) {
+                        Log.d(TAG, "  not in voice → request join flow")
+                        micLatched = false
+                        requestJoinVoice()
+                        return@setOnTouchListener true
+                    }
+                    micWasHold = false
+                    val r = Runnable {
+                        Log.d(TAG, "  → 300ms threshold → HOLD mode")
+                        micWasHold = true
+                        voice?.setMicOn(true)
+                        updateMicAppearance()
+                    }
+                    micHoldRunnable = r
+                    micHoldHandler.postDelayed(r, 300)
+                    true
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    Log.d(TAG, "mic ACTION_UP/CANCEL wasHold=$micWasHold")
+                    micHoldRunnable?.let { micHoldHandler.removeCallbacks(it) }
+                    micHoldRunnable = null
+                    if (voiceStatus != VoiceManager.VoiceStatus.CONNECTED) {
+                        Log.d(TAG, "  not connected — ignoring release")
+                        return@setOnTouchListener true
+                    }
+                    if (micWasHold) {
+                        Log.d(TAG, "  release from HOLD → mic off")
+                        voice?.setMicOn(false)
+                        micWasHold = false
+                    } else {
+                        micLatched = !micLatched
+                        Log.d(TAG, "  click release → latched=$micLatched")
+                        voice?.setMicOn(micLatched)
+                    }
+                    updateMicAppearance()
+                    true
+                }
+                else -> false
+            }
+        }
+    }
+
+    private fun updateMicAppearance() {
+        val tint = when {
+            voiceStatus != VoiceManager.VoiceStatus.CONNECTED -> Color.parseColor("#555555")
+            micWasHold      -> Color.parseColor("#d62828")
+            micLatched      -> Color.parseColor("#c2185b")
+            else            -> Color.parseColor("#2a2a40")
+        }
+        fabMic.backgroundTintList = android.content.res.ColorStateList.valueOf(tint)
+        Log.d(TAG, "updateMicAppearance: status=$voiceStatus latched=$micLatched hold=$micWasHold")
+    }
+
+    private fun requestJoinVoice() {
+        Log.d(TAG, "requestJoinVoice()")
+        val hasPerm = ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+        Log.d(TAG, "  RECORD_AUDIO granted=$hasPerm")
+        if (!hasPerm) {
+            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.RECORD_AUDIO), RC_MIC)
+            return
+        }
+        val m = manager
+        if (m == null) { Log.w(TAG, "  no manager"); return }
+        voiceStatus = VoiceManager.VoiceStatus.CONNECTING
+        updateMicAppearance()
+        m.requestVoiceToken()
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        Log.d(TAG, "onRequestPermissionsResult rc=$requestCode granted=${grantResults.joinToString()}")
+        if (requestCode == RC_MIC) {
+            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                Log.d(TAG, "  mic granted — proceeding with voice join")
+                requestJoinVoice()
+            } else {
+                Toast.makeText(this, "Mic permission required for voice chat", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    override fun onDestroy() {
+        Log.d(TAG, "onDestroy()")
+        voice?.dispose()
+        voice = null
+        manager?.disconnect()
+        webView.destroy()
+        super.onDestroy()
     }
 }
