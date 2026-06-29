@@ -65,4 +65,6 @@ dependencies {
     // LiveKit — voice SFU client
     implementation 'io.livekit:livekit-android:2.24.1'
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3'
+
+    testImplementation 'junit:junit:4.13.2'
 }
