@@ -12,12 +12,10 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
-import android.util.TypedValue
 import android.view.Menu
 import android.view.MenuItem
 import android.view.MotionEvent
 import android.view.View
-import android.view.ViewGroup
 import android.webkit.*
 import android.widget.FrameLayout
 import android.widget.TextView
