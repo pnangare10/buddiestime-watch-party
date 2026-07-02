@@ -8,108 +8,149 @@
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: #0f0f1a;
-      color: #e8e8f0;
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 24px;
+      background: #0f0f1a; color: #e8e8f0; min-height: 100vh;
+      display: flex; align-items: flex-start; justify-content: center; padding: 24px;
     }
-    .card {
-      background: #1a1a2e;
-      border: 1px solid #2a2a40;
-      border-radius: 16px;
-      padding: 32px 28px;
-      max-width: 420px;
-      width: 100%;
-      text-align: center;
-    }
+    .wrap { display: flex; flex-direction: column; gap: 16px; max-width: 460px; width: 100%; }
+    .card { background: #1a1a2e; border: 1px solid #2a2a40; border-radius: 16px; padding: 28px 24px; }
     h1 { font-size: 20px; color: #fff; margin-bottom: 6px; }
-    .subtitle { font-size: 13px; color: #666; margin-bottom: 28px; }
-    .room-id {
-      font-size: 22px;
-      font-weight: 700;
-      color: #3d8ef0;
-      letter-spacing: 1px;
-      margin-bottom: 20px;
-    }
-    .info-row {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      background: #12122a;
-      border-radius: 10px;
-      padding: 12px 14px;
-      margin-bottom: 10px;
-      text-align: left;
-    }
+    .subtitle { font-size: 13px; color: #666; margin-bottom: 22px; }
+    .room-id { font-size: 22px; font-weight: 700; color: #3d8ef0; letter-spacing: 1px; margin-bottom: 18px; text-align: center; }
+    .info-row { display: flex; align-items: center; gap: 10px; background: #12122a; border-radius: 10px; padding: 12px 14px; margin-bottom: 10px; }
     .info-label { font-size: 11px; color: #666; text-transform: uppercase; letter-spacing: .4px; margin-bottom: 2px; }
     .info-value { font-size: 13px; color: #ccc; word-break: break-all; }
-    .platform-dot {
-      width: 36px; height: 36px; border-radius: 8px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 18px; font-weight: bold; color: #fff; flex-shrink: 0;
-    }
+    .platform-dot { width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: bold; color: #fff; flex-shrink: 0; }
     .dot-hotstar    { background: #ff6600; }
     .dot-youtube    { background: #ff0000; }
     .dot-primevideo { background: #00a8e1; }
     .dot-netflix    { background: #e50914; }
     .dot-unknown    { background: #444; }
-    button {
-      width: 100%;
-      margin-top: 20px;
-      padding: 13px;
-      border: none;
-      border-radius: 8px;
-      font-size: 15px;
-      font-weight: 700;
-      cursor: pointer;
-      transition: opacity .15s;
-    }
-    #btn-join  { background: #1a9e6e; color: #fff; }
-    #btn-join:hover { opacity: .85; }
+    label.field { display: block; font-size: 12px; color: #888; margin-bottom: 6px; text-transform: uppercase; letter-spacing: .4px; }
+    input[type=text] { width: 100%; background: #0f0f1a; border: 1px solid #2a2a40; color: #fff; padding: 10px 12px; font-size: 14px; border-radius: 8px; outline: none; font-family: inherit; }
+    input[type=text]:focus { border-color: #3d8ef0; }
+    .name-block { margin-bottom: 18px; }
+    button { width: 100%; margin-top: 16px; padding: 13px; border: none; border-radius: 8px; font-size: 15px; font-weight: 700; cursor: pointer; font-family: inherit; }
+    #btn-join { background: #1a9e6e; color: #fff; }
+    #btn-join:hover:not(:disabled) { opacity: .85; }
     #btn-join:disabled { background: #333; color: #666; cursor: default; opacity: 1; }
-    .status { margin-top: 14px; font-size: 12px; color: #888; min-height: 18px; }
+    .status { margin-top: 14px; font-size: 12px; color: #888; min-height: 18px; text-align: center; }
     .error  { color: #e05; }
-    .hint   { margin-top: 16px; font-size: 11px; color: #555; line-height: 1.6; }
+    .hint   { margin-top: 16px; font-size: 11px; color: #555; line-height: 1.6; text-align: center; }
     .hint a { color: #3d8ef0; }
+
+    /* Chat card */
+    .chat-card { background: #1a1a2e; border: 1px solid #2a2a40; border-radius: 16px; display: flex; flex-direction: column; overflow: hidden; }
+    .chat-hdr { background: #12122a; padding: 10px 14px; font-weight: 700; color: #fff; display: flex; justify-content: space-between; align-items: center; }
+    .chat-hdr .count { font-weight: 400; color: #999; font-size: 11px; }
+    .chat-peers { padding: 8px 14px; font-size: 11px; color: #999; border-bottom: 1px solid #2a2a40; min-height: 30px; }
+    .peer { display: inline-block; margin-right: 10px; }
+    .peer.host { color: #1a9e6e; }
+    .peer.guest { color: #3d8ef0; }
+    .chat-body { min-height: 200px; max-height: 320px; overflow-y: auto; padding: 10px 14px; display: flex; flex-direction: column; gap: 6px; }
+    .chat-msg { font-size: 13px; line-height: 1.4; word-wrap: break-word; }
+    .chat-msg .n { color: #3d8ef0; font-weight: 700; margin-right: 4px; }
+    .chat-msg .ts { color: #555; font-size: 10px; margin-left: 6px; }
+    .chat-empty { color: #555; font-size: 12px; text-align: center; padding: 20px 0; }
+    .chat-input { display: flex; border-top: 1px solid #2a2a40; }
+    .chat-input input { flex: 1; background: #0f0f1a; color: #fff; border: none; padding: 10px 12px; font-size: 14px; outline: none; font-family: inherit; }
+    .chat-input button { width: auto; margin: 0; background: #1a9e6e; color: #fff; border: none; padding: 0 16px; border-radius: 0; cursor: pointer; font-weight: 700; }
+    .chat-input button:disabled { background: #333; color: #666; cursor: default; }
+    .hidden { display: none !important; }
+
+    /* Voice card */
+    .voice-card { background: #1a1a2e; border: 1px solid #2a2a40; border-radius: 16px; padding: 16px 18px; }
+    .voice-hdr { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .voice-hdr .title { font-weight: 700; color: #fff; font-size: 14px; }
+    .voice-hdr .small { font-size: 11px; color: #888; }
+    .voice-row { display: flex; align-items: center; gap: 14px; }
+    .mic-btn { width: 56px; height: 56px; border-radius: 50%; background: #2a2a40; color: #fff; border: 2px solid #2a2a40; font-size: 24px; cursor: pointer; user-select: none; touch-action: none; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: border-color .15s; }
+    .mic-btn:disabled { opacity: .5; cursor: default; }
+    .mic-btn.latched { background: #c2185b; border-color: #ff5492; }
+    .mic-btn.held    { background: #d62828; border-color: #ff5656; animation: pulse 1s infinite; }
+    @keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(230,40,40,.6); } 50% { box-shadow: 0 0 0 10px rgba(230,40,40,0); } }
+    .voice-peers { flex: 1; font-size: 12px; color: #aaa; line-height: 1.5; min-height: 40px; }
+    .voice-peer { display: inline-block; margin-right: 8px; padding: 2px 8px; background: #0f0f1a; border-radius: 10px; }
+    .voice-peer.speaking { background: #1a9e6e; color: #fff; }
+    .voice-actions { margin-top: 10px; display: flex; gap: 8px; }
+    .voice-actions button { flex: 1; margin: 0; padding: 9px; font-size: 13px; background: #2a2a40; color: #ddd; }
+    .voice-actions button.primary { background: #1a9e6e; color: #fff; }
   </style>
+  <script src="https://cdn.jsdelivr.net/npm/livekit-client@2.7.5/dist/livekit-client.umd.min.js"></script>
 </head>
 <body>
-<div class="card">
-  <h1>Watch Party</h1>
-  <p class="subtitle">You've been invited to a watch party</p>
+<div class="wrap">
+  <div class="card">
+    <h1>Watch Party</h1>
+    <p class="subtitle">You've been invited to a watch party</p>
 
-  <div class="room-id" id="room-id-display">…</div>
+    <div class="room-id" id="room-id-display">…</div>
 
-  <div class="info-row" id="platform-row" style="display:none">
-    <div class="platform-dot dot-unknown" id="platform-dot">?</div>
-    <div>
-      <div class="info-label">Platform</div>
-      <div class="info-value" id="platform-display">—</div>
+    <div class="info-row" id="platform-row" style="display:none">
+      <div class="platform-dot dot-unknown" id="platform-dot">?</div>
+      <div>
+        <div class="info-label">Platform</div>
+        <div class="info-value" id="platform-display">—</div>
+      </div>
+    </div>
+
+    <div class="info-row" id="video-row" style="display:none">
+      <div style="flex:1">
+        <div class="info-label">Video</div>
+        <div class="info-value" id="video-display">—</div>
+      </div>
+    </div>
+
+    <div class="name-block">
+      <label class="field" for="display-name">Your name</label>
+      <input id="display-name" type="text" placeholder="Required" maxlength="32" />
+    </div>
+
+    <button id="btn-join" disabled>Enter your name to join</button>
+    <div class="status" id="status"></div>
+
+    <p class="hint">
+      Requires the <strong>Watch Party</strong> Chrome extension to actually play/pause in sync. You can still chat from this page without it.
+    </p>
+  </div>
+
+  <div class="voice-card" id="voice-card">
+    <div class="voice-hdr">
+      <span class="title">🎙 Voice</span>
+      <span class="small" id="voice-status">Not connected</span>
+    </div>
+    <div class="voice-row">
+      <button id="mic-btn" class="mic-btn" disabled title="Click: toggle on/off · Hold: push-to-talk">🎤</button>
+      <div class="voice-peers" id="voice-peers">(join voice to hear peers)</div>
+    </div>
+    <div class="voice-actions">
+      <button id="voice-join-btn" class="primary">Join voice</button>
+      <button id="voice-leave-btn" disabled>Leave voice</button>
     </div>
   </div>
 
-  <div class="info-row" id="video-row" style="display:none">
-    <div style="flex:1">
-      <div class="info-label">Video</div>
-      <div class="info-value" id="video-display">—</div>
+  <div class="chat-card" id="chat-card">
+    <div class="chat-hdr">
+      <span>💬 Room Chat</span>
+      <span class="count" id="chat-count">0</span>
+    </div>
+    <div class="chat-peers" id="chat-peers">(not connected)</div>
+    <div class="chat-body" id="chat-body">
+      <div class="chat-empty">Connecting…</div>
+    </div>
+    <div class="chat-input">
+      <input id="chat-input" type="text" maxlength="500" placeholder="Enter your name first…" disabled />
+      <button id="chat-send" disabled>Send</button>
     </div>
   </div>
-
-  <button id="btn-join" disabled>Loading room…</button>
-  <div class="status" id="status"></div>
-
-  <p class="hint">
-    Requires the <strong>Watch Party</strong> Chrome extension.<br>
-    Don't have it? <a href="/">Learn more</a>
-  </p>
 </div>
 
 <script>
+  const log = (...a) => console.log('[HWP-ROOM]', ...a);
+  const warn = (...a) => console.warn('[HWP-ROOM]', ...a);
+
   const pathParts = window.location.pathname.split('/');
   const roomId = decodeURIComponent(pathParts[pathParts.length - 1] || pathParts[pathParts.length - 2]);
+  log(`roomId from URL: ${roomId}`);
   document.getElementById('room-id-display').textContent = 'Room: ' + roomId;
 
   const PLATFORM_LABELS = { hotstar: 'JioHotstar', youtube: 'YouTube', primevideo: 'Prime Video', netflix: 'Netflix' };
@@ -117,25 +158,99 @@
 
   const wsProto = location.protocol === 'https:' ? 'wss' : 'ws';
   const serverUrl = wsProto + '://' + location.host;
+  log(`serverUrl: ${serverUrl}`);
+
   let videoUrl = null;
   let platform = null;
+  let displayName = localStorage.getItem('hwp_displayName') || '';
+  let myClientId = 'web-' + Math.random().toString(36).slice(2, 7);
+  let joined = false;
+  let participants = [];
 
-  const ws = new WebSocket(serverUrl);
+  const nameInput = document.getElementById('display-name');
+  const btnJoin   = document.getElementById('btn-join');
+  const chatInput = document.getElementById('chat-input');
+  const chatSend  = document.getElementById('chat-send');
+  const chatBody  = document.getElementById('chat-body');
+  const chatPeers = document.getElementById('chat-peers');
+  const chatCount = document.getElementById('chat-count');
 
-  ws.addEventListener('open', () => {
-    ws.send(JSON.stringify({ type: 'join', roomId, clientId: 'room-page-' + Math.random().toString(36).slice(2, 7) }));
-    document.getElementById('status').textContent = 'Connecting to room…';
+  nameInput.value = displayName;
+  refreshButtons();
+
+  nameInput.addEventListener('input', () => {
+    displayName = nameInput.value.trim();
+    log(`name input changed → "${displayName}"`);
+    localStorage.setItem('hwp_displayName', displayName);
+    refreshButtons();
+    if (displayName && !ws) { log('name entered → connecting WS'); connectWs(); }
+    else if (displayName && ws && !joined && ws.readyState === WebSocket.OPEN) { sendJoin(); }
   });
 
-  ws.addEventListener('message', ({ data }) => {
-    let msg;
-    try { msg = JSON.parse(data); } catch { return; }
+  function refreshButtons() {
+    const nameOk = !!displayName;
+    const videoOk = !!videoUrl;
+    btnJoin.disabled = !(nameOk && videoOk);
+    if (!nameOk) btnJoin.textContent = 'Enter your name to join';
+    else if (!videoOk) btnJoin.textContent = 'Waiting for host video…';
+    else btnJoin.textContent = 'Open & Join';
+
+    const chatOk = nameOk && joined;
+    chatInput.disabled = !chatOk;
+    chatSend.disabled  = !chatOk;
+    chatInput.placeholder = nameOk ? (joined ? 'Type a message…' : 'Connecting…') : 'Enter your name first…';
+    log(`refreshButtons: nameOk=${nameOk} videoOk=${videoOk} joined=${joined} → joinBtn.disabled=${btnJoin.disabled} chatEnabled=${chatOk}`);
+  }
+
+  let ws = null;
+
+  function connectWs() {
+    log(`connectWs()`);
+    ws = new WebSocket(serverUrl);
+    ws.addEventListener('open', () => {
+      log('WS open');
+      sendJoin();
+    });
+    ws.addEventListener('message', ({ data }) => {
+      let msg;
+      try { msg = JSON.parse(data); } catch { warn('bad JSON from server'); return; }
+      log(`WS recv type=${msg.type}`);
+      handle(msg);
+    });
+    ws.addEventListener('error', () => {
+      warn('WS error');
+      document.getElementById('status').innerHTML = '<span class="error">Could not reach the server.</span>';
+    });
+    ws.addEventListener('close', (e) => {
+      log(`WS closed code=${e.code} reason="${e.reason}"`);
+      joined = false;
+      refreshButtons();
+      if (!videoUrl) {
+        document.getElementById('status').innerHTML = '<span class="error">Room not found or disconnected.</span>';
+      }
+    });
+  }
+
+  function sendJoin() {
+    if (!displayName) { log('sendJoin: no name → skip'); return; }
+    if (!ws || ws.readyState !== WebSocket.OPEN) { log(`sendJoin: WS not open (readyState=${ws?.readyState})`); return; }
+    const payload = { type: 'join', roomId, clientId: myClientId, displayName };
+    log(`sendJoin: ${JSON.stringify(payload)}`);
+    ws.send(JSON.stringify(payload));
+  }
+
+  function handle(msg) {
+    if (msg.type === 'error') {
+      warn(`server error: reason=${msg.reason} detail=${msg.detail}`);
+      document.getElementById('status').innerHTML = `<span class="error">${msg.reason}: ${msg.detail || ''}</span>`;
+      return;
+    }
 
     if (msg.type === 'joined') {
+      joined = true;
       videoUrl = msg.videoUrl;
       platform = msg.platform;
-
-      document.getElementById('room-id-display').textContent = 'Room: ' + roomId;
+      log(`joined: role=${msg.role} platform=${platform} videoUrl=${videoUrl}`);
 
       if (platform) {
         const row = document.getElementById('platform-row');
@@ -149,49 +264,259 @@
       if (videoUrl) {
         document.getElementById('video-row').style.display = 'flex';
         document.getElementById('video-display').textContent = videoUrl;
-      }
-
-      const btn = document.getElementById('btn-join');
-      if (videoUrl) {
-        btn.textContent = 'Open & Join';
-        btn.disabled = false;
         document.getElementById('status').textContent = '';
       } else {
-        btn.textContent = 'Host hasn\'t started a video yet';
         document.getElementById('status').textContent = 'Waiting for host to pick a video…';
       }
-
-      // Leave WS — we only needed the room state
-      ws.close();
+      refreshButtons();
+      return;
     }
-  });
 
-  ws.addEventListener('error', () => {
-    document.getElementById('status').innerHTML = '<span class="error">Could not reach the server.</span>';
-    document.getElementById('btn-join').textContent = 'Server unavailable';
-  });
-
-  ws.addEventListener('close', () => {
-    if (!videoUrl) {
-      document.getElementById('status').innerHTML = '<span class="error">Room not found or host disconnected.</span>';
+    if (msg.type === 'participants') {
+      participants = Array.isArray(msg.list) ? msg.list : [];
+      log(`participants: count=${participants.length}`);
+      renderPeers();
+      return;
     }
+
+    if (msg.type === 'chat') {
+      log(`chat: from=${msg.from}(${msg.name}) text="${msg.text?.slice(0,80)}"`);
+      appendChat(msg);
+      return;
+    }
+
+    if (msg.type === 'voice-token') {
+      log(`voice-token recv — lkRoom=${msg.lkRoom} url=${msg.lkUrl}`);
+      connectLiveKit(msg.token, msg.lkUrl).catch(err => {
+        warn('connectLiveKit failed:', err?.message || err);
+        setVoiceStatus('Voice failed: ' + (err?.message || 'unknown'));
+        voiceJoinBtn.disabled = false;
+      });
+      return;
+    }
+
+    if (msg.type === 'voice-participants') {
+      log(`voice-participants recv count=${msg.list?.length}`);
+      renderVoicePeers(msg.list || []);
+      return;
+    }
+  }
+
+  // ── Voice (LiveKit) ─────────────────────────────────────────────────────
+  const micBtn       = document.getElementById('mic-btn');
+  const voiceStatus  = document.getElementById('voice-status');
+  const voicePeers   = document.getElementById('voice-peers');
+  const voiceJoinBtn = document.getElementById('voice-join-btn');
+  const voiceLeaveBtn= document.getElementById('voice-leave-btn');
+  let lkRoom = null;
+  let lkTrack = null;        // LocalAudioTrack once created
+  let micEnabled = false;    // current mic publish state
+  let micLatched = false;    // click-toggle state
+  let holdTimer = null;      // 300ms timer to distinguish click vs hold
+  let wasHold = false;
+
+  function setVoiceStatus(s) { log(`voice status: ${s}`); voiceStatus.textContent = s; }
+  function renderVoicePeers(list) {
+    while (voicePeers.firstChild) voicePeers.removeChild(voicePeers.firstChild);
+    if (!list.length) { voicePeers.textContent = '(no one in voice yet)'; return; }
+    for (const p of list) {
+      const s = document.createElement('span');
+      s.className = 'voice-peer';
+      s.dataset.id = p.id;
+      s.textContent = '🎙 ' + (p.name || p.id);
+      voicePeers.appendChild(s);
+    }
+  }
+
+  voiceJoinBtn.addEventListener('click', () => {
+    log('voice-join-btn clicked');
+    if (!joined) { warn('  not joined room yet'); return; }
+    if (!window.LivekitClient) { warn('  livekit-client not loaded'); setVoiceStatus('LiveKit SDK not loaded'); return; }
+    voiceJoinBtn.disabled = true;
+    setVoiceStatus('Requesting token…');
+    ws.send(JSON.stringify({ type: 'voice-token-request' }));
   });
+
+  voiceLeaveBtn.addEventListener('click', leaveVoice);
+
+  async function connectLiveKit(token, url) {
+    log(`connectLiveKit url=${url}`);
+    const { Room, RoomEvent, Track, createLocalAudioTrack } = window.LivekitClient;
+    lkRoom = new Room({ adaptiveStream: true, dynacast: true });
+
+    lkRoom.on(RoomEvent.Connected, () => {
+      log('LK connected');
+      setVoiceStatus('Connected');
+      voiceLeaveBtn.disabled = false;
+      micBtn.disabled = false;
+    });
+    lkRoom.on(RoomEvent.Disconnected, (reason) => {
+      log('LK disconnected reason=' + reason);
+      setVoiceStatus('Disconnected');
+      onVoiceLeft();
+    });
+    lkRoom.on(RoomEvent.TrackSubscribed, (track, pub, participant) => {
+      log(`LK track subscribed kind=${track.kind} from=${participant.identity}`);
+      if (track.kind === Track.Kind.Audio) {
+        const el = track.attach();
+        el.setAttribute('data-lk-peer', participant.identity);
+        el.autoplay = true;
+        document.body.appendChild(el);
+      }
+    });
+    lkRoom.on(RoomEvent.TrackUnsubscribed, (track) => {
+      log(`LK track unsubscribed kind=${track.kind}`);
+      track.detach().forEach(el => el.remove());
+    });
+    lkRoom.on(RoomEvent.ActiveSpeakersChanged, (speakers) => {
+      const ids = new Set(speakers.map(s => s.identity));
+      log('LK active speakers:', [...ids].join(','));
+      for (const el of voicePeers.querySelectorAll('.voice-peer')) {
+        if (ids.has(el.dataset.id)) el.classList.add('speaking');
+        else el.classList.remove('speaking');
+      }
+    });
+
+    await lkRoom.connect(url, token);
+    log('LK connect() resolved');
+    // Create mic track but do NOT publish yet (user controls with button)
+    lkTrack = await createLocalAudioTrack({ echoCancellation: true, noiseSuppression: true });
+    log('local mic track created');
+  }
+
+  async function leaveVoice() {
+    log('leaveVoice()');
+    try { if (lkTrack) { lkTrack.stop(); lkTrack = null; } } catch (e) { warn('stop track:', e.message); }
+    try { if (lkRoom)  { await lkRoom.disconnect(); } } catch (e) { warn('lk disconnect:', e.message); }
+    onVoiceLeft();
+    if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'voice-leave' }));
+  }
+  function onVoiceLeft() {
+    lkRoom = null; lkTrack = null;
+    micEnabled = false; micLatched = false;
+    micBtn.classList.remove('latched', 'held');
+    micBtn.disabled = true;
+    voiceJoinBtn.disabled = false;
+    voiceLeaveBtn.disabled = true;
+    setVoiceStatus('Not connected');
+  }
+
+  async function setMic(on) {
+    log(`setMic(${on}) — current=${micEnabled}`);
+    if (!lkRoom || !lkTrack) { warn('  no LK room/track'); return; }
+    if (on === micEnabled) return;
+    try {
+      if (on) { await lkRoom.localParticipant.publishTrack(lkTrack); }
+      else    { await lkRoom.localParticipant.unpublishTrack(lkTrack, false); }
+      micEnabled = on;
+      log(`  mic now ${on ? 'ON' : 'OFF'}`);
+    } catch (e) { warn('setMic failed:', e.message); }
+  }
+
+  // Hold vs click logic (300ms threshold)
+  micBtn.addEventListener('pointerdown', (e) => {
+    if (micBtn.disabled) return;
+    e.preventDefault();
+    log('mic pointerdown');
+    wasHold = false;
+    holdTimer = setTimeout(() => {
+      log('  → crossed 300ms → treating as HOLD');
+      wasHold = true;
+      micBtn.classList.remove('latched');
+      micBtn.classList.add('held');
+      setMic(true);
+    }, 300);
+  });
+  const endHold = () => {
+    if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; }
+    if (wasHold) {
+      log('mic release (was hold) → OFF');
+      wasHold = false;
+      micBtn.classList.remove('held');
+      setMic(false);
+    } else {
+      // Treat as click: toggle latched state
+      micLatched = !micLatched;
+      log(`mic release (was click) → latched=${micLatched}`);
+      if (micLatched) { micBtn.classList.add('latched'); setMic(true); }
+      else            { micBtn.classList.remove('latched'); setMic(false); }
+    }
+  };
+  micBtn.addEventListener('pointerup', endHold);
+  micBtn.addEventListener('pointercancel', () => { log('mic pointercancel'); endHold(); });
+  micBtn.addEventListener('pointerleave', () => { if (wasHold) { log('mic pointerleave during hold'); endHold(); } });
+
+  function renderPeers() {
+    while (chatPeers.firstChild) chatPeers.removeChild(chatPeers.firstChild);
+    if (participants.length === 0) {
+      chatPeers.textContent = '(no one else here yet)';
+      return;
+    }
+    for (const p of participants) {
+      const s = document.createElement('span');
+      s.className = 'peer ' + (p.role === 'host' ? 'host' : 'guest');
+      s.textContent = (p.role === 'host' ? '★ ' : '● ') + (p.name || p.id);
+      chatPeers.appendChild(s);
+    }
+  }
+
+  const chatHistory = [];
+  function appendChat(m) {
+    chatHistory.push(m);
+    chatCount.textContent = String(chatHistory.length);
+
+    // clear empty-state
+    const empty = chatBody.querySelector('.chat-empty');
+    if (empty) empty.remove();
+
+    const row = document.createElement('div');
+    row.className = 'chat-msg';
+    const n = document.createElement('span'); n.className = 'n'; n.textContent = m.name || m.from;
+    const t = document.createElement('span'); t.textContent = ' ' + (m.text || '');
+    const ts = document.createElement('span'); ts.className = 'ts'; ts.textContent = formatTs(m.ts);
+    row.appendChild(n); row.appendChild(t); row.appendChild(ts);
+    chatBody.appendChild(row);
+    chatBody.scrollTop = chatBody.scrollHeight;
+  }
+
+  function formatTs(ts) {
+    if (!ts) return '';
+    const d = new Date(ts);
+    return ` ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+  }
+
+  function doSend() {
+    const txt = chatInput.value;
+    log(`chat send: len=${txt.length}`);
+    if (!txt.trim()) { log('  empty → skip'); return; }
+    if (!ws || ws.readyState !== WebSocket.OPEN) { warn(`chat send: WS not open (${ws?.readyState})`); return; }
+    ws.send(JSON.stringify({ type: 'chat', text: txt.trim() }));
+    chatInput.value = '';
+  }
+  chatSend.addEventListener('click', doSend);
+  chatInput.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); doSend(); } });
+
+  // Connect immediately if we already have a name stored
+  if (displayName) {
+    log(`restored displayName="${displayName}" — connecting immediately`);
+    connectWs();
+  } else {
+    chatBody.querySelector('.chat-empty').textContent = 'Enter your name to join the chat';
+  }
 
   document.getElementById('btn-join').addEventListener('click', () => {
-    if (!videoUrl) return;
-    // Store pendingJoin for the extension's content script to pick up after navigation
+    log('btn-join clicked');
+    if (!videoUrl) { log('  no videoUrl → abort'); return; }
+    if (!displayName) { log('  no displayName → abort'); return; }
+    const pending = { serverUrl, roomId, clientId: 'guest-' + Math.random().toString(36).slice(2, 7), platform, displayName };
+    log(`pendingJoin: ${JSON.stringify(pending)}`);
     try {
-      chrome.storage.local.set({
-        pendingJoin: { serverUrl, roomId, clientId: 'guest-' + Math.random().toString(36).slice(2, 7), platform }
-      }, () => {
+      chrome.storage.local.set({ pendingJoin: pending, displayName }, () => {
+        log('chrome.storage set OK — navigating');
         window.location.href = 'https://' + videoUrl;
       });
     } catch {
-      // Fallback if chrome.storage not available (e.g. non-extension context)
-      // Store in sessionStorage so content script can read it
-      sessionStorage.setItem('hwp_pendingJoin', JSON.stringify({
-        serverUrl, roomId, clientId: 'guest-' + Math.random().toString(36).slice(2, 7), platform
-      }));
+      sessionStorage.setItem('hwp_pendingJoin', JSON.stringify(pending));
       window.location.href = 'https://' + videoUrl;
     }
   });

@@ -1,11 +1,19 @@
+require('dotenv').config();
+
 const http = require('http');
 const fs   = require('fs');
 const path = require('path');
 const { WebSocketServer } = require('ws');
+const { mintToken, LK_READY } = require('./livekit');
 
 const PORT = process.env.PORT || 8080;
-const rooms     = new Map(); // roomId → Map<ws, { role: 'host'|'guest', id: string }>
-const roomState = new Map(); // roomId → { platform, videoUrl, time, paused, updatedAt }
+const MAX_NAME_LEN = 32;
+const MAX_CHAT_LEN = 500;
+const VOICE_CAP    = 4;
+
+const rooms        = new Map(); // roomId → Map<ws, { role, id, name, voice: boolean }>
+const clientsById  = new Map(); // roomId → Map<clientId, ws>
+const roomState    = new Map(); // roomId → { platform, videoUrl, time, paused, updatedAt }
 
 const STATIC_ROUTES = {
   '/':             path.join(__dirname, 'index.html'),
@@ -14,16 +22,19 @@ const STATIC_ROUTES = {
 
 const httpServer = http.createServer((req, res) => {
   const url = new URL(req.url, `http://localhost`);
+  console.log(`[HTTP] ${req.method} ${url.pathname}`);
 
   if (url.pathname === '/health') {
+    console.log(`[HTTP]   → /health → 200`);
     res.writeHead(200, { 'Content-Type': 'text/plain' });
     res.end('OK');
     return;
   }
 
   if (url.pathname.startsWith('/room/')) {
+    console.log(`[HTTP]   → /room/* → room.html`);
     fs.readFile(path.join(__dirname, 'room.html'), (err, data) => {
-      if (err) { res.writeHead(404); res.end('Not found'); return; }
+      if (err) { console.warn(`[HTTP]   → room.html read error: ${err.message}`); res.writeHead(404); res.end('Not found'); return; }
       res.writeHead(200, { 'Content-Type': 'text/html' });
       res.end(data);
     });
@@ -32,14 +43,16 @@ const httpServer = http.createServer((req, res) => {
 
   const filePath = STATIC_ROUTES[url.pathname];
   if (filePath) {
+    console.log(`[HTTP]   → static ${url.pathname} → ${filePath}`);
     fs.readFile(filePath, (err, data) => {
-      if (err) { res.writeHead(404); res.end('Not found'); return; }
+      if (err) { console.warn(`[HTTP]   → static read error: ${err.message}`); res.writeHead(404); res.end('Not found'); return; }
       res.writeHead(200, { 'Content-Type': 'text/html' });
       res.end(data);
     });
     return;
   }
 
+  console.log(`[HTTP]   → no route match → 404`);
   res.writeHead(404, { 'Content-Type': 'text/plain' });
   res.end('Not found');
 });
@@ -47,105 +60,287 @@ const httpServer = http.createServer((req, res) => {
 const wss = new WebSocketServer({ server: httpServer });
 httpServer.listen(PORT, () => console.log(`[SERVER] Watch Party running on port ${PORT}`));
 
+// ── helpers ──────────────────────────────────────────────────────────────────
+
+function sanitizeName(raw) {
+  if (typeof raw !== 'string') { console.log(`[SERVER] sanitizeName: not a string (type=${typeof raw}) → invalid`); return null; }
+  const trimmed = raw.trim();
+  if (trimmed.length === 0) { console.log(`[SERVER] sanitizeName: empty after trim → invalid`); return null; }
+  if (trimmed.length > MAX_NAME_LEN) { console.log(`[SERVER] sanitizeName: too long (${trimmed.length}>${MAX_NAME_LEN}) → invalid`); return null; }
+  const escaped = trimmed.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  console.log(`[SERVER] sanitizeName: "${raw}" → "${escaped}"`);
+  return escaped;
+}
+
+function sanitizeChat(raw) {
+  if (typeof raw !== 'string') { console.log(`[SERVER] sanitizeChat: not a string → reject`); return null; }
+  const trimmed = raw.trim();
+  if (trimmed.length === 0) { console.log(`[SERVER] sanitizeChat: empty → reject`); return null; }
+  const capped = trimmed.length > MAX_CHAT_LEN ? trimmed.slice(0, MAX_CHAT_LEN) : trimmed;
+  if (trimmed.length > MAX_CHAT_LEN) console.log(`[SERVER] sanitizeChat: capped ${trimmed.length}→${MAX_CHAT_LEN}`);
+  const escaped = capped.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return escaped;
+}
+
 function logState(roomId, label) {
   const state = roomState.get(roomId);
   const room  = rooms.get(roomId);
-  if (!state) return;
-  const members = room ? [...room.values()].map(c => c.role + ':' + c.id).join(', ') : 'none';
+  if (!state) { console.log(`[${roomId}] ${label} | (no state)`); return; }
+  const members = room ? [...room.values()].map(c => `${c.role}:${c.id}(${c.name})`).join(', ') : 'none';
   console.log(`[${roomId}] ${label} | time=${state.time?.toFixed(2)}s paused=${state.paused} url=${state.videoUrl} members=[${members}]`);
 }
 
-wss.on('connection', ws => {
+function participantsList(roomId) {
+  const room = rooms.get(roomId);
+  if (!room) return [];
+  return [...room.values()].map(c => ({ id: c.id, role: c.role, name: c.name, voice: !!c.voice }));
+}
+
+function voiceCount(roomId) {
+  const room = rooms.get(roomId);
+  if (!room) return 0;
+  let n = 0;
+  for (const info of room.values()) if (info.voice) n++;
+  return n;
+}
+
+function broadcastVoiceParticipants(roomId, reason) {
+  const room = rooms.get(roomId);
+  if (!room) return;
+  const list = [...room.values()].filter(c => c.voice).map(c => ({ id: c.id, name: c.name }));
+  console.log(`[${roomId}] broadcastVoiceParticipants (reason=${reason}) → ${list.length} member(s)`);
+  broadcastToAll(roomId, { type: 'voice-participants', list });
+}
+
+function broadcastParticipants(roomId, reason) {
+  const list = participantsList(roomId);
+  console.log(`[${roomId}] broadcastParticipants (reason=${reason}) → ${list.length} members`);
+  broadcastToAll(roomId, { type: 'participants', list });
+}
+
+// Broadcasts a payload we constructed server-side to EVERY client in the room (including sender).
+function broadcastToAll(roomId, msg) {
+  const room = rooms.get(roomId);
+  if (!room) { console.log(`[${roomId}] broadcastToAll: room missing`); return; }
+  const data = JSON.stringify(msg);
+  let sent = 0;
+  for (const [client, info] of room) {
+    if (client.readyState === 1) {
+      client.send(data);
+      sent++;
+    } else {
+      console.log(`[${roomId}]   ✗ skipped ${info.role}:${info.id} (readyState=${client.readyState})`);
+    }
+  }
+  console.log(`[${roomId}]   broadcastToAll type=${msg.type} → ${sent} client(s)`);
+}
+
+// Forwards a raw message from a sender to every OTHER client in the room.
+function broadcast(roomId, sender, msg) {
+  const room = rooms.get(roomId);
+  if (!room) { console.log(`[${roomId}] broadcast: room missing`); return; }
+  const data = JSON.stringify(msg);
+  let sent = 0;
+  for (const [client, info] of room) {
+    if (client !== sender && client.readyState === 1) {
+      client.send(data);
+      console.log(`[${roomId}]   → forwarded type=${msg.type} to ${info.role}:${info.id}`);
+      sent++;
+    }
+  }
+  if (sent === 0) console.log(`[${roomId}]   → no connected peers to forward type=${msg.type} to`);
+}
+
+// ── connection ───────────────────────────────────────────────────────────────
+
+wss.on('connection', (ws, req) => {
+  const ip = req?.socket?.remoteAddress || 'unknown';
+  console.log(`[WS] connection opened from ${ip}`);
+
   let roomId   = null;
   let clientId = null;
 
   ws.on('message', raw => {
     let msg;
-    try { msg = JSON.parse(raw); } catch { console.error('[SERVER] bad JSON:', raw); return; }
+    try { msg = JSON.parse(raw); } catch { console.error(`[WS] bad JSON from ${clientId || ip}:`, raw.toString().slice(0, 200)); return; }
 
-    // ── join ────────────────────────────────────────────────────────────────
+    console.log(`[WS] recv from ${clientId || '(pre-join)'} type=${msg.type}`);
+
+    // ── join ──────────────────────────────────────────────────────────────
     if (msg.type === 'join') {
-      roomId   = msg.roomId;
-      clientId = msg.clientId || Math.random().toString(36).slice(2);
+      const incomingRoom = msg.roomId;
+      const incomingId   = msg.clientId || Math.random().toString(36).slice(2);
       const { platform, videoUrl } = msg;
+      const name = sanitizeName(msg.displayName);
 
-      console.log(`[${roomId}] JOIN request from clientId=${clientId} platform=${platform} videoUrl=${videoUrl}`);
+      console.log(`[${incomingRoom}] JOIN request clientId=${incomingId} platform=${platform} videoUrl=${videoUrl} rawName="${msg.displayName}"`);
+
+      if (!name) {
+        console.warn(`[${incomingRoom}] JOIN REJECTED for clientId=${incomingId} — invalid displayName`);
+        try { ws.send(JSON.stringify({ type: 'error', reason: 'name-required', detail: `displayName required (1-${MAX_NAME_LEN} chars, after trim)` })); } catch (e) { console.warn(`[${incomingRoom}] failed to send reject reason: ${e.message}`); }
+        ws.close(1008, 'name-required');
+        return;
+      }
+
+      roomId   = incomingRoom;
+      clientId = incomingId;
 
       if (!rooms.has(roomId)) {
+        console.log(`[${roomId}] room does not exist yet → CREATE`);
         rooms.set(roomId, new Map());
+        clientsById.set(roomId, new Map());
         roomState.set(roomId, { platform, videoUrl, time: 0, paused: true, updatedAt: Date.now() });
-        console.log(`[${roomId}] Room CREATED — initial state: platform=${platform} videoUrl=${videoUrl}`);
+        console.log(`[${roomId}] room CREATED — initial state: platform=${platform} videoUrl=${videoUrl}`);
+      } else {
+        console.log(`[${roomId}] room exists → joining`);
       }
 
       const room = rooms.get(roomId);
+      const byId = clientsById.get(roomId);
+
+      if (byId.has(clientId)) {
+        console.warn(`[${roomId}] clientId=${clientId} already present — closing stale socket first`);
+        const stale = byId.get(clientId);
+        try { stale.close(1000, 'replaced'); } catch {}
+        room.delete(stale);
+      }
+
       const role = room.size === 0 ? 'host' : 'guest';
-      room.set(ws, { role, id: clientId });
+      console.log(`[${roomId}] assigning role=${role} (room size before insert = ${room.size})`);
+
+      room.set(ws, { role, id: clientId, name, voice: false });
+      byId.set(clientId, ws);
 
       const state = roomState.get(roomId) || {};
-      const response = { type: 'joined', role, clientId, platform: state.platform, videoUrl: state.videoUrl, time: state.time, paused: state.paused };
+      const response = { type: 'joined', role, clientId, name, platform: state.platform, videoUrl: state.videoUrl, time: state.time, paused: state.paused };
+      console.log(`[${roomId}] → sending joined payload:`, JSON.stringify(response));
       ws.send(JSON.stringify(response));
 
-      console.log(`[${roomId}] JOINED as ${role} (${room.size} total) — sent state: time=${state.time?.toFixed(2)}s paused=${state.paused} videoUrl=${state.videoUrl}`);
       logState(roomId, 'room state after join');
+      broadcastParticipants(roomId, 'member-joined');
       return;
     }
 
-    // ── state-update ────────────────────────────────────────────────────────
+    // All post-join messages require roomId + clientId to be set
+    if (!roomId || !clientId) {
+      console.warn(`[WS] ignoring type=${msg.type} — socket not yet joined a room`);
+      return;
+    }
+
+    const room = rooms.get(roomId);
+    const senderInfo = room?.get(ws);
+    if (!senderInfo) {
+      console.warn(`[${roomId}] type=${msg.type} from ${clientId} but sender not in room map — ignoring`);
+      return;
+    }
+
+    // ── state-update (host → guests) ─────────────────────────────────────
     if (msg.type === 'state-update') {
       const state = roomState.get(roomId);
-      const room  = rooms.get(roomId);
-      const senderRole = room?.get(ws)?.role;
-
-      if (!state) {
-        console.warn(`[${roomId}] state-update from ${clientId} but room has no state — ignoring`);
-        return;
-      }
-      if (senderRole !== 'host') {
-        console.warn(`[${roomId}] state-update from ${clientId} (role=${senderRole}) — only host can push state, ignoring`);
-        return;
-      }
+      if (!state) { console.warn(`[${roomId}] state-update from ${clientId} but room has no state — ignoring`); return; }
+      if (senderInfo.role !== 'host') { console.warn(`[${roomId}] state-update from ${clientId} role=${senderInfo.role} — only host can push, ignoring`); return; }
 
       Object.assign(state, { time: msg.time, paused: msg.paused, videoUrl: msg.videoUrl, updatedAt: Date.now() });
 
       const guestCount = [...room.values()].filter(c => c.role === 'guest').length;
-      console.log(`[${roomId}] HOST state-update received: time=${msg.time?.toFixed(2)}s paused=${msg.paused} videoUrl=${msg.videoUrl} — broadcasting to ${guestCount} guest(s)`);
+      console.log(`[${roomId}] HOST state-update: time=${msg.time?.toFixed(2)}s paused=${msg.paused} videoUrl=${msg.videoUrl} → broadcasting to ${guestCount} guest(s)`);
       logState(roomId, 'room state now');
 
-      broadcast(roomId, ws, { type: 'state-update', time: state.time, paused: state.paused, videoUrl: state.videoUrl });
+      broadcast(roomId, ws, { type: 'state-update', time: state.time, paused: state.paused, videoUrl: state.videoUrl, platform: state.platform });
+      return;
+    }
+
+    // ── voice-token-request (client wants to join LiveKit voice room) ───
+    if (msg.type === 'voice-token-request') {
+      console.log(`[${roomId}] VOICE-TOKEN-REQUEST from ${senderInfo.id}(${senderInfo.name}) — voice_ready=${LK_READY}`);
+      if (!LK_READY) {
+        ws.send(JSON.stringify({ type: 'error', reason: 'voice-not-configured', detail: 'server missing LiveKit credentials' }));
+        return;
+      }
+      const current = voiceCount(roomId);
+      if (!senderInfo.voice && current >= VOICE_CAP) {
+        console.warn(`[${roomId}]   → REJECT: voice cap ${VOICE_CAP} reached (current=${current})`);
+        ws.send(JSON.stringify({ type: 'error', reason: 'voice-room-full', detail: `Voice cap is ${VOICE_CAP}` }));
+        return;
+      }
+      mintToken(roomId, senderInfo.id, senderInfo.name).then(result => {
+        if (!result.ok) {
+          console.warn(`[${roomId}]   → mintToken failed: ${result.reason}`);
+          ws.send(JSON.stringify({ type: 'error', reason: result.reason || 'voice-token-failed' }));
+          return;
+        }
+        senderInfo.voice = true;
+        console.log(`[${roomId}]   → marked ${senderInfo.id} voice=true (count now ${voiceCount(roomId)})`);
+        ws.send(JSON.stringify({ type: 'voice-token', token: result.token, lkUrl: result.lkUrl, lkRoom: result.lkRoom }));
+        broadcastVoiceParticipants(roomId, 'voice-join');
+        broadcastParticipants(roomId, 'voice-join');
+      }).catch(err => {
+        console.error(`[${roomId}]   → mintToken threw: ${err.message}`);
+        ws.send(JSON.stringify({ type: 'error', reason: 'voice-token-failed', detail: err.message }));
+      });
+      return;
+    }
+
+    // ── voice-leave (client is disconnecting from LiveKit room) ─────────
+    if (msg.type === 'voice-leave') {
+      console.log(`[${roomId}] VOICE-LEAVE from ${senderInfo.id} (was voice=${senderInfo.voice})`);
+      if (senderInfo.voice) {
+        senderInfo.voice = false;
+        broadcastVoiceParticipants(roomId, 'voice-leave');
+        broadcastParticipants(roomId, 'voice-leave');
+      }
+      return;
+    }
+
+    // ── chat (any client → all clients incl. sender) ────────────────────
+    if (msg.type === 'chat') {
+      const clean = sanitizeChat(msg.text);
+      if (!clean) {
+        console.warn(`[${roomId}] chat from ${clientId} dropped — empty/invalid text`);
+        return;
+      }
+      const payload = {
+        type: 'chat',
+        from: senderInfo.id,      // server-verified, never trust client-supplied from
+        name: senderInfo.name,    // server-stamped
+        text: clean,
+        ts: Date.now(),
+      };
+      console.log(`[${roomId}] CHAT from ${senderInfo.role}:${senderInfo.id}(${senderInfo.name}) → "${clean.slice(0, 80)}${clean.length > 80 ? '…' : ''}"`);
+      broadcastToAll(roomId, payload);
       return;
     }
 
     console.log(`[${roomId}] unknown message type="${msg.type}" from clientId=${clientId}`);
   });
 
-  ws.on('close', () => {
-    if (!roomId) return;
+  ws.on('close', (code, reason) => {
+    console.log(`[WS] close from ${clientId || ip} code=${code} reason="${reason?.toString() || ''}"`);
+    if (!roomId) { console.log(`[WS]   (socket never joined a room)`); return; }
+
     const room = rooms.get(roomId);
-    if (!room) return;
-    const leavingRole = room.get(ws)?.role;
+    const byId = clientsById.get(roomId);
+    if (!room) { console.log(`[${roomId}] close: room already gone`); return; }
+
+    const leaving = room.get(ws);
     room.delete(ws);
-    console.log(`[${roomId}] ${leavingRole}:${clientId} disconnected (${room.size} remaining)`);
+    if (byId && leaving) byId.delete(leaving.id);
+
+    console.log(`[${roomId}] ${leaving?.role || '?'}:${clientId} disconnected (${room.size} remaining)`);
+
     if (room.size === 0) {
       rooms.delete(roomId);
+      clientsById.delete(roomId);
       roomState.delete(roomId);
       console.log(`[${roomId}] Room DESTROYED (empty)`);
+    } else {
+      broadcastParticipants(roomId, 'member-left');
+      if (leaving?.voice) {
+        console.log(`[${roomId}]   leaver was in voice — broadcasting voice-participants`);
+        broadcastVoiceParticipants(roomId, 'member-left');
+      }
     }
   });
 
-  ws.on('error', err => console.error(`[${roomId}] ws error:`, err.message));
+  ws.on('error', err => console.error(`[${roomId || '(?)'}] ws error from ${clientId || ip}: ${err.message}`));
 });
-
-function broadcast(roomId, sender, msg) {
-  const room = rooms.get(roomId);
-  if (!room) return;
-  const data = JSON.stringify(msg);
-  let sent = 0;
-  for (const [client, info] of room) {
-    if (client !== sender && client.readyState === 1) {
-      client.send(data);
-      console.log(`[${roomId}]   → pushed to ${info.role}:${info.id}`);
-      sent++;
-    }
-  }
-  if (sent === 0) console.log(`[${roomId}]   → no connected guests to broadcast to`);
-}
