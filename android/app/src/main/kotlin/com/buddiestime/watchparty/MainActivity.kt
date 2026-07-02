@@ -333,6 +333,9 @@ class MainActivity : AppCompatActivity() {
                 fullscreenContainer.visibility = View.VISIBLE
                 webView.visibility = View.GONE
                 hideSystemUi()
+                chatOverlay.bringToFront()
+                fabChat.bringToFront()
+                tvChatBadge.bringToFront()
             }
             override fun onHideCustomView() {
                 fullscreenView?.let { fullscreenContainer.removeView(it) }
@@ -342,6 +345,9 @@ class MainActivity : AppCompatActivity() {
                 fullscreenContainer.visibility = View.GONE
                 webView.visibility = View.VISIBLE
                 showSystemUi()
+                chatOverlay.bringToFront()
+                fabChat.bringToFront()
+                tvChatBadge.bringToFront()
             }
         }
     }
