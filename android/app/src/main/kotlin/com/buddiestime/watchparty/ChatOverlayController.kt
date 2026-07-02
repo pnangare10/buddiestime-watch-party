@@ -128,13 +128,18 @@ class ChatOverlayController(
         val row = TextView(messagesContainer.context).apply {
             text = "${firstNameOf(m.name)}: ${m.text}"
             setTextColor(0xFFFFFFFF.toInt())
-            textSize = 13.5f
+            textSize = 15f
             setShadowLayer(4f, 0f, 1f, 0xFF000000.toInt())
+            setBackgroundResource(R.drawable.bg_chat_bubble)
+            val d = resources.displayMetrics.density
+            val padH = (12 * d).toInt()
+            val padV = (7 * d).toInt()
+            setPadding(padH, padV, padH, padV)
             val lp = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             )
-            lp.bottomMargin = (6 * resources.displayMetrics.density).toInt()
+            lp.bottomMargin = (6 * d).toInt()
             layoutParams = lp
         }
         if (messagesContainer.childCount >= MAX_HISTORY) messagesContainer.removeViewAt(0)
