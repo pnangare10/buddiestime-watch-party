@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:orientation="vertical" android:background="#0F0F1A" android:padding="24dp">
+
+    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:text="Watch Party" android:textColor="#FFFFFF" android:textSize="26sp"
+        android:textStyle="bold" android:layout_marginBottom="20dp" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnCreate" android:layout_width="match_parent"
+        android:layout_height="wrap_content" android:text="Create Party"
+        android:textSize="16sp" android:paddingVertical="14dp" android:layout_marginBottom="20dp" />
+
+    <com.google.android.material.textfield.TextInputLayout
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:hint="Enter or search a room code" android:layout_marginBottom="8dp">
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/etSearch" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:imeOptions="actionGo"
+            android:inputType="text" android:maxLines="1" />
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnJoin" style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:text="Join room" android:layout_marginBottom="20dp" />
+
+    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:text="Recent rooms" android:textColor="#A0A0C0" android:textSize="14sp"
+        android:layout_marginBottom="8dp" />
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/rvRecent" android:layout_width="match_parent"
+        android:layout_height="0dp" android:layout_weight="1" />
+
+    <TextView android:id="@+id/tvEmpty" android:layout_width="match_parent"
+        android:layout_height="wrap_content" android:text="No recent rooms yet"
+        android:textColor="#606080" android:gravity="center" android:padding="24dp"
+        android:visibility="gone" />
+</LinearLayout>
