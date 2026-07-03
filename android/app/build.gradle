@@ -67,4 +67,7 @@ dependencies {
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3'
 
     testImplementation 'junit:junit:4.13.2'
+    // Real org.json impl on the unit-test classpath — the framework org.json in android.jar
+    // is stubbed ("not mocked") for local unit tests, so RoomStatus/RecentRooms JSON tests need this.
+    testImplementation 'org.json:json:20231013'
 }
