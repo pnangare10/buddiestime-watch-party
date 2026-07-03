@@ -33,7 +33,7 @@ class WatchPartyManager(
     @Volatile var role: String? = null
         private set
 
-    private var ws: WebSocket? = null
+    @Volatile private var ws: WebSocket? = null
     private val mainHandler = Handler(Looper.getMainLooper())
     private val client = OkHttpClient.Builder()
         .pingInterval(20, TimeUnit.SECONDS)
@@ -110,13 +110,11 @@ class WatchPartyManager(
             }
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
                 Log.w(TAG, "WS onFailure: ${t.message}", t)
-                ws = null; role = null
-                if (intentionalClose || gen != connectionGen) { post { onStatusChange("Disconnected") } } else { post { scheduleReconnect(gen) } }
+                if (intentionalClose || gen != connectionGen) { post { ws = null; role = null; onStatusChange("Disconnected") } } else { post { ws = null; role = null; scheduleReconnect(gen) } }
             }
             override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
                 Log.d(TAG, "WS onClosed code=$code reason=$reason")
-                ws = null; role = null
-                if (intentionalClose || gen != connectionGen) { post { onStatusChange("Disconnected") } } else { post { scheduleReconnect(gen) } }
+                if (intentionalClose || gen != connectionGen) { post { ws = null; role = null; onStatusChange("Disconnected") } } else { post { ws = null; role = null; scheduleReconnect(gen) } }
             }
         })
     }
