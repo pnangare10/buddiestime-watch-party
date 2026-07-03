@@ -104,6 +104,7 @@ function waitForHealth(baseUrl, timeoutMs = 8000) {
 async function startServer({ port = 8099, env = {} } = {}) {
   const serverPath = path.join(__dirname, "..", "server.js");
   const child = spawn(process.execPath, [serverPath], {
+    cwd: path.join(__dirname, ".."), // run from server/ so dotenv + relative paths resolve on Windows
     env: { ...process.env, PORT: String(port), ...env },
     stdio: ["ignore", "ignore", "inherit"],
   });
@@ -278,6 +279,15 @@ function scheduleRoomExpiry(roomId) {
     `[${roomId}] room empty — scheduling expiry in ${ROOM_GRACE_MS}ms`,
   );
   const timer = setTimeout(() => {
+    // Defensive: if the room got repopulated between cancel and fire, don't destroy.
+    const r = rooms.get(roomId);
+    if (r && r.size > 0) {
+      console.log(
+        `[${roomId}] grace fired but room repopulated — skip destroy`,
+      );
+      roomGraceTimers.delete(roomId);
+      return;
+    }
     rooms.delete(roomId);
     clientsById.delete(roomId);
     roomState.delete(roomId);
@@ -585,64 +595,120 @@ git commit -m "feat(server): add /api/rooms/status and /api/room/:id status endp
 
 ## Task 4: Server — keep-alive ping sweep
 
+> **Revised after plan-critique:** the original test disabled the client's pong via `ws.pong = () => {}` / `ws._receiver` internals — but the `ws` library auto-pongs at the protocol level, so the sweep would never fire and the test would hang. Instead we extract the sweep into a **pure `sweepClients()`** module and unit-test it with fake client objects (no real sockets, no hang risk).
+
 **Files:**
 
-- Modify: `server/server.js` (after `wss` is created ~60)
+- Create: `server/keepalive.js` (pure sweep logic)
 - Create: `server/test/keepalive.test.js`
+- Modify: `server/server.js` (require + wire the sweep interval; tag sockets with `isAlive`)
 
 **Interfaces:**
 
-- Consumes: `wss` (WebSocketServer).
-- Produces: `const PING_INTERVAL_MS = Number(process.env.PING_INTERVAL_MS) || 30000`; each socket tagged `ws.isAlive`; `pong` handler resets it; interval terminates sockets that didn't pong.
+- Produces: `function sweepClients(clients)` — iterates any iterable of client objects each exposing `isAlive: boolean`, `ping()`, `terminate()`; terminates clients whose `isAlive === false`, otherwise flips `isAlive = false` and pings. Returns `{ pinged, terminated }`.
+- Consumes (server.js): `wss` (WebSocketServer), `const PING_INTERVAL_MS = Number(process.env.PING_INTERVAL_MS) || 30000`; each socket tagged `ws.isAlive = true` on connect; `pong` handler resets it.
 
-- [ ] **Step 1: Write the failing keep-alive test**
+- [ ] **Step 1: Write the failing unit test**
 
 Create `server/test/keepalive.test.js`:
 
 ```js
 const { test } = require("node:test");
 const assert = require("node:assert");
-const WebSocket = require("ws");
-const { startServer } = require("./harness");
+const { sweepClients } = require("../keepalive");
 
-test("a socket that never pongs is terminated by the sweep", async () => {
-  const srv = await startServer({
-    port: 8095,
-    env: { PING_INTERVAL_MS: "300", ROOM_GRACE_MS: "5000" },
-  });
-  try {
-    const ws = new WebSocket(srv.wsUrl);
-    // Disable automatic pong so the server marks us dead.
-    ws.on("ping", () => {}); // swallow
-    ws._receiver && (ws._receiver._pingCb = null);
-    await new Promise((r) => ws.on("open", r));
-    ws.pong = () => {}; // never actually pong
-    const closed = new Promise((resolve) =>
-      ws.on("close", () => resolve(true)),
-    );
-    const result = await Promise.race([
-      closed,
-      new Promise((r) => setTimeout(() => r(false), 2000)),
-    ]);
-    assert.strictEqual(
-      result,
-      true,
-      "server should have terminated the pong-less socket",
-    );
-  } finally {
-    await srv.stop();
-  }
+function fakeClient(isAlive) {
+  return {
+    isAlive,
+    pinged: 0,
+    terminated: 0,
+    ping() {
+      this.pinged++;
+    },
+    terminate() {
+      this.terminated++;
+    },
+  };
+}
+
+test("sweep pings a live socket and flips it to pending (isAlive=false)", () => {
+  const live = fakeClient(true);
+  const res = sweepClients([live]);
+  assert.strictEqual(live.pinged, 1);
+  assert.strictEqual(live.isAlive, false, "marked pending until next pong");
+  assert.strictEqual(live.terminated, 0);
+  assert.strictEqual(res.pinged, 1);
+});
+
+test("sweep terminates a socket that never ponged since the last sweep", () => {
+  const dead = fakeClient(false);
+  const res = sweepClients([dead]);
+  assert.strictEqual(dead.terminated, 1);
+  assert.strictEqual(dead.pinged, 0);
+  assert.strictEqual(res.terminated, 1);
+});
+
+test("a socket that pongs between sweeps survives the next sweep", () => {
+  const ws = fakeClient(true);
+  sweepClients([ws]); // round 1: ping, isAlive→false
+  assert.strictEqual(ws.isAlive, false);
+  ws.isAlive = true; // simulate the pong handler firing
+  sweepClients([ws]); // round 2: still alive → ping again, not terminated
+  assert.strictEqual(ws.terminated, 0);
+  assert.strictEqual(ws.pinged, 2);
 });
 ```
 
 - [ ] **Step 2: Run to verify it fails**
 
 Run: `cd server && node --test test/keepalive.test.js`
-Expected: FAIL — no sweep exists, socket stays open, race resolves `false`.
+Expected: FAIL — cannot find module `../keepalive`.
 
-- [ ] **Step 3: Implement the sweep**
+- [ ] **Step 3: Implement the pure sweep module**
 
-Add constant with the others:
+Create `server/keepalive.js`:
+
+```js
+// Terminates sockets that failed to pong since the last sweep; pings the rest
+// and marks them pending (isAlive=false) until their pong handler flips it back.
+function sweepClients(clients) {
+  let pinged = 0;
+  let terminated = 0;
+  clients.forEach((ws) => {
+    if (ws.isAlive === false) {
+      console.log("[WS] terminating dead socket (no pong)");
+      ws.terminate();
+      terminated++;
+      return;
+    }
+    ws.isAlive = false;
+    try {
+      ws.ping();
+      pinged++;
+    } catch (e) {
+      /* socket already gone */
+    }
+  });
+  return { pinged, terminated };
+}
+
+module.exports = { sweepClients };
+```
+
+- [ ] **Step 4: Run to verify it passes**
+
+Run: `cd server && node --test test/keepalive.test.js`
+Expected: PASS (3 tests).
+
+- [ ] **Step 5: Wire the sweep into server.js**
+
+Add the require near the top (with the other requires, after `const { mintToken, LK_READY } = require('./livekit');`):
+
+```js
+const { sweepClients } = require("./keepalive");
+```
+
+Add the constant with the others (after `const VOICE_CAP = 4;`):
 
 ```js
 const PING_INTERVAL_MS = Number(process.env.PING_INTERVAL_MS) || 30000;
@@ -651,18 +717,10 @@ const PING_INTERVAL_MS = Number(process.env.PING_INTERVAL_MS) || 30000;
 Immediately after `const wss = new WebSocketServer({ server: httpServer });` (server.js:60), add:
 
 ```js
-const keepAlive = setInterval(() => {
-  wss.clients.forEach((ws) => {
-    if (ws.isAlive === false) {
-      console.log("[WS] terminating dead socket (no pong)");
-      return ws.terminate();
-    }
-    ws.isAlive = false;
-    try {
-      ws.ping();
-    } catch {}
-  });
-}, PING_INTERVAL_MS);
+const keepAlive = setInterval(
+  () => sweepClients(wss.clients),
+  PING_INTERVAL_MS,
+);
 wss.on("close", () => clearInterval(keepAlive));
 ```
 
@@ -675,16 +733,16 @@ ws.on("pong", () => {
 });
 ```
 
-- [ ] **Step 4: Run to verify it passes**
+- [ ] **Step 6: Build-verify the wiring + regression**
 
-Run: `cd server && node --test test/keepalive.test.js`
-Expected: PASS. Also re-run `node --test test/rooms.test.js` → still PASS (4).
+Run: `cd server && node --test test/rooms.test.js` → still PASS (4). Then start the server manually (`node server.js`) and confirm it boots with a `[SERVER] ... running on port` line (the interval must not crash on an empty client set).
+Expected: server boots cleanly.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
-git add server/server.js server/test/keepalive.test.js
-git commit -m "feat(server): ping sweep terminates dead/half-open sockets"
+git add server/keepalive.js server/server.js server/test/keepalive.test.js
+git commit -m "feat(server): pure sweepClients() sweep terminates dead/half-open sockets"
 ```
 
 ---
@@ -700,7 +758,8 @@ git commit -m "feat(server): ping sweep terminates dead/half-open sockets"
 - Produces:
   - `object Config`
   - `const val SERVER_URL = "wss://buddiestime-watch-party.onrender.com"`
-  - `fun healthUrl(wsUrl: String = SERVER_URL): String` — swaps `wss://`→`https://`, `ws://`→`http://`, appends `/health`.
+  - `fun baseHttpUrl(wsUrl: String = SERVER_URL): String` — swaps `wss://`→`https://`, `ws://`→`http://`, strips a trailing `/`. This is the canonical HTTP base for both `/health` and `/api/*` (added per plan-critique so callers don't string-hack `healthUrl()`).
+  - `fun healthUrl(wsUrl: String = SERVER_URL): String` — `baseHttpUrl(wsUrl) + "/health"`.
   - `fun effectiveServerUrl(override: String?): String` — returns a non-blank override else `SERVER_URL`.
 
 - [ ] **Step 1: Write the failing test**
@@ -714,6 +773,10 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class ConfigTest {
+    @Test fun baseHttpUrl_swaps_scheme_and_strips_trailing_slash() {
+        assertEquals("https://buddiestime-watch-party.onrender.com", Config.baseHttpUrl("wss://buddiestime-watch-party.onrender.com"))
+        assertEquals("http://localhost:8080", Config.baseHttpUrl("ws://localhost:8080/"))
+    }
     @Test fun healthUrl_swaps_scheme_and_appends_health() {
         assertEquals("https://buddiestime-watch-party.onrender.com/health", Config.healthUrl("wss://buddiestime-watch-party.onrender.com"))
         assertEquals("http://localhost:8080/health", Config.healthUrl("ws://localhost:8080"))
@@ -739,10 +802,10 @@ package com.buddiestime.watchparty
 object Config {
     const val SERVER_URL = "wss://buddiestime-watch-party.onrender.com"
 
-    fun healthUrl(wsUrl: String = SERVER_URL): String {
-        val http = wsUrl.replaceFirst("wss://", "https://").replaceFirst("ws://", "http://")
-        return http.trimEnd('/') + "/health"
-    }
+    fun baseHttpUrl(wsUrl: String = SERVER_URL): String =
+        wsUrl.replaceFirst("wss://", "https://").replaceFirst("ws://", "http://").trimEnd('/')
+
+    fun healthUrl(wsUrl: String = SERVER_URL): String = baseHttpUrl(wsUrl) + "/health"
 
     fun effectiveServerUrl(override: String?): String =
         override?.trim().takeUnless { it.isNullOrEmpty() } ?: SERVER_URL
@@ -907,6 +970,10 @@ data class RoomStatus(
     val title: String?,
 )
 
+// Returns the string field or null when absent/JSON-null (no "null" sentinel strings).
+private fun JSONObject.optStringOrNull(key: String): String? =
+    if (has(key) && !isNull(key)) optString(key) else null
+
 fun parseRoomStatusList(json: String): List<RoomStatus> {
     val root = JSONObject(json)
     val arr = root.optJSONArray("rooms") ?: return emptyList()
@@ -916,9 +983,9 @@ fun parseRoomStatusList(json: String): List<RoomStatus> {
             roomId = o.optString("roomId"),
             active = o.optBoolean("active", false),
             count = o.optInt("count", 0),
-            platform = o.optString("platform", null.toString()).takeIf { o.has("platform") && !o.isNull("platform") },
-            videoUrl = if (o.has("videoUrl") && !o.isNull("videoUrl")) o.optString("videoUrl") else null,
-            title = if (o.has("title") && !o.isNull("title")) o.optString("title") else null,
+            platform = o.optStringOrNull("platform"),
+            videoUrl = o.optStringOrNull("videoUrl"),
+            title = o.optStringOrNull("title"),
         )
     }
 }
@@ -1100,6 +1167,7 @@ Add fields after `private val client = ...`:
     private val backoff = BackoffPolicy()
     private var reconnectAttempt = 0
     @Volatile private var intentionalClose = false
+    @Volatile private var connectionGen = 0   // bumped per connect()/disconnect(); stale wake/reconnect loops bail
     private var lastParams: JoinParams? = null
     private val healthClient = OkHttpClient.Builder().connectTimeout(10, TimeUnit.SECONDS).readTimeout(10, TimeUnit.SECONDS).build()
 
@@ -1124,23 +1192,27 @@ Replace the body of `connect(...)` (WatchPartyManager.kt:41-97) with:
         val clientId = lastParams?.clientId ?: ("android-" + (Math.random() * 999999).toInt())
         lastParams = JoinParams(serverUrl, roomId, platform, videoUrl, displayName, clientId)
         intentionalClose = false
-        openWithWake(lastParams!!)
+        val gen = ++connectionGen   // supersede any in-flight wake/reconnect loop
+        openWithWake(lastParams!!, gen)
     }
 
-    private fun openWithWake(p: JoinParams) {
+    // gen: the connection generation that owns this loop. If connect()/disconnect()
+    // is called again, connectionGen changes and this (now-stale) loop bails out —
+    // preventing stacked reconnects and posts to a torn-down UI.
+    private fun openWithWake(p: JoinParams, gen: Int) {
         post { onStatusChange("Waking up the server…") }
         Thread {
-            val healthy = pollHealth(Config.healthUrl(p.serverUrl), 60_000)
-            Log.d(TAG, "health poll result=$healthy")
-            if (intentionalClose) { Log.d(TAG, "openWithWake aborted — intentional close"); return@Thread }
-            if (!healthy) { post { onStatusChange("Server unreachable — retrying…"); scheduleReconnect() }; return@Thread }
-            post { openSocket(p) }
+            val healthy = pollHealth(Config.healthUrl(p.serverUrl), 60_000, gen)
+            Log.d(TAG, "health poll result=$healthy gen=$gen (current=$connectionGen)")
+            if (intentionalClose || gen != connectionGen) { Log.d(TAG, "openWithWake aborted — stale/intentional"); return@Thread }
+            if (!healthy) { post { if (gen == connectionGen) { onStatusChange("Server unreachable — retrying…"); scheduleReconnect(gen) } }; return@Thread }
+            post { if (gen == connectionGen && !intentionalClose) openSocket(p, gen) }
         }.start()
     }
 
-    private fun pollHealth(healthUrl: String, budgetMs: Long): Boolean {
+    private fun pollHealth(healthUrl: String, budgetMs: Long, gen: Int): Boolean {
         val deadline = System.currentTimeMillis() + budgetMs
-        while (System.currentTimeMillis() < deadline && !intentionalClose) {
+        while (System.currentTimeMillis() < deadline && !intentionalClose && gen == connectionGen) {
             try {
                 healthClient.newCall(Request.Builder().url(healthUrl).build()).execute().use { r ->
                     if (r.isSuccessful) return true
@@ -1151,10 +1223,10 @@ Replace the body of `connect(...)` (WatchPartyManager.kt:41-97) with:
         return false
     }
 
-    private fun openSocket(p: JoinParams) {
+    private fun openSocket(p: JoinParams, gen: Int) {
         ws?.let { Log.d(TAG, "closing existing WS before reconnect"); it.close(1000, "Reconnecting") }
         val request = Request.Builder().url(p.serverUrl).build()
-        Log.d(TAG, "opening WS to ${p.serverUrl} with clientId=${p.clientId}")
+        Log.d(TAG, "opening WS to ${p.serverUrl} with clientId=${p.clientId} gen=$gen")
         ws = client.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
                 reconnectAttempt = 0
@@ -1174,25 +1246,25 @@ Replace the body of `connect(...)` (WatchPartyManager.kt:41-97) with:
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
                 Log.w(TAG, "WS onFailure: ${t.message}", t)
                 ws = null; role = null
-                if (intentionalClose) { post { onStatusChange("Disconnected") } } else { post { scheduleReconnect() } }
+                if (intentionalClose || gen != connectionGen) { post { onStatusChange("Disconnected") } } else { post { scheduleReconnect(gen) } }
             }
             override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
                 Log.d(TAG, "WS onClosed code=$code reason=$reason")
                 ws = null; role = null
-                if (intentionalClose) { post { onStatusChange("Disconnected") } } else { post { scheduleReconnect() } }
+                if (intentionalClose || gen != connectionGen) { post { onStatusChange("Disconnected") } } else { post { scheduleReconnect(gen) } }
             }
         })
     }
 
-    private fun scheduleReconnect() {
-        if (intentionalClose) return
+    private fun scheduleReconnect(gen: Int) {
+        if (intentionalClose || gen != connectionGen) return
         reconnectAttempt++
         val delay = backoff.delayFor(reconnectAttempt)
-        Log.d(TAG, "scheduleReconnect attempt=$reconnectAttempt delay=${delay}ms")
+        Log.d(TAG, "scheduleReconnect attempt=$reconnectAttempt delay=${delay}ms gen=$gen")
         onReconnecting(reconnectAttempt)
         onStatusChange("Reconnecting…")
         val p = lastParams ?: return
-        mainHandler.postDelayed({ if (!intentionalClose) openWithWake(p) }, delay)
+        mainHandler.postDelayed({ if (!intentionalClose && gen == connectionGen) openWithWake(p, gen) }, delay)
     }
 ```
 
@@ -1217,6 +1289,7 @@ Replace `disconnect()` (WatchPartyManager.kt:229-234):
     fun disconnect() {
         Log.d(TAG, "disconnect()")
         intentionalClose = true
+        connectionGen++          // invalidate any in-flight wake/reconnect loop (also covers activity teardown)
         lastParams = null
         reconnectAttempt = 0
         ws?.close(1000, "User left party")
@@ -1430,8 +1503,7 @@ class RoomsHomeActivity : AppCompatActivity() {
     private fun refreshStatuses() {
         val ids = all.map { it.roomId }
         if (ids.isEmpty()) return
-        val healthBase = Config.healthUrl().removeSuffix("/health")
-        val url = "$healthBase/api/rooms/status?ids=" + ids.joinToString(",")
+        val url = Config.baseHttpUrl() + "/api/rooms/status?ids=" + ids.joinToString(",")
         Log.d(TAG, "refreshStatuses url=$url")
         http.newCall(Request.Builder().url(url).build()).enqueue(object : okhttp3.Callback {
             override fun onFailure(call: okhttp3.Call, e: java.io.IOException) { Log.w(TAG, "status fetch failed: ${e.message}") }
@@ -1571,9 +1643,13 @@ At the end of `onCreate` (replace the debug auto-connect block at MainActivity.k
         if (testServer != null && testRoom != null) {
             Log.d(TAG, "debug auto-connect: $testServer / $testRoom")
             connectToParty(testServer, testRoom)
-        } else if (intent.getBooleanExtra("join", false) && joinRoomId != null) {
-            Log.d(TAG, "home-join auto-connect: room=$joinRoomId")
-            connectToParty(Config.SERVER_URL, joinRoomId)
+        } else if (intent.getBooleanExtra("join", false)) {
+            if (joinRoomId.isNullOrBlank()) {
+                Log.w(TAG, "home-join requested but roomId missing/blank — ignoring")
+            } else {
+                Log.d(TAG, "home-join auto-connect: room=$joinRoomId")
+                connectToParty(Config.SERVER_URL, joinRoomId)
+            }
         }
 ```
 
@@ -1654,5 +1730,19 @@ git commit -m "chore: verification notes for persistent-rooms + reliable-connect
 
 - **Spec coverage:** A→Tasks 9 (wake/timeout/reconnect) + 4 (ping sweep); B→Tasks 1 (grace) + 2 (promotion) + 3 (status API) + 11 (5s cadence); C→Tasks 5,7,8,10,11; D unchanged behavior preserved. All spec sections mapped.
 - **Placeholder scan:** No TBD/TODO; every code step has concrete code; test bodies included.
-- **Type consistency:** `RecentRoom`, `RoomStatus`, `parseRoomStatusList`, `BackoffPolicy.delayFor`, `Config.healthUrl/effectiveServerUrl`, server `roomStatus`/`promoteNewHost`/`scheduleRoomExpiry`, and the `{type:'role'}` message are defined once and consumed with matching signatures across tasks.
-- **Known follow-up flagged for critique:** `intentionalClose` is toggled from a background thread and the UI thread — acceptable here (`@Volatile`), but confirm during critique. RecyclerView uses `notifyDataSetChanged` (fine for small lists).
+- **Type consistency:** `RecentRoom`, `RoomStatus`, `parseRoomStatusList`, `BackoffPolicy.delayFor`, `Config.baseHttpUrl/healthUrl/effectiveServerUrl`, server `roomStatus`/`promoteNewHost`/`scheduleRoomExpiry`/`sweepClients`, and the `{type:'role'}` message are defined once and consumed with matching signatures across tasks.
+- **Known follow-up flagged for critique:** `intentionalClose` is toggled from a background thread and the UI thread — acceptable here (`@Volatile`). RecyclerView uses `notifyDataSetChanged` (fine for a ≤20-item recents list).
+
+## Revisions applied after plan-critique (v2)
+
+The plan-critique subagent flagged issues; incorporated:
+
+1. **Task 4 rewritten** — original keep-alive test relied on suppressing the `ws` client's pong via library internals, which the `ws` protocol auto-pong defeats (the test would hang). Now a pure `server/keepalive.js` `sweepClients()` module is unit-tested with fake client objects (no sockets, no hang).
+2. **Task 1 hardened** — added a defensive emptiness guard in the grace-expiry callback (skip destroy if the room was repopulated). Note: this is belt-and-suspenders; Node's single-threaded model already prevents the timer from firing mid-join-handler, so the generation-counter the critique proposed was not needed.
+3. **Task 9 generation guard** — `connectionGen` (bumped by `connect()`/`disconnect()`) makes stale wake/reconnect threads bail, preventing stacked connections and posts to a torn-down activity.
+4. **Task 5** — added `Config.baseHttpUrl()`; Task 10 now uses it instead of string-hacking `healthUrl()`.
+5. **Task 7** — replaced `optString("platform", null.toString())` with a clean `optStringOrNull()` extension.
+6. **Task 11** — guard against a missing/blank `roomId` before auto-connecting.
+7. **Test harness** — explicit `cwd` on the spawned server so dotenv/relative paths resolve on Windows.
+
+Rejected as overstated: the "critical" Task 1 race (not a real race in Node's event loop) and the reconnectAttempt-climbing concern (`onOpen` already resets it to 0 per successful connect).
