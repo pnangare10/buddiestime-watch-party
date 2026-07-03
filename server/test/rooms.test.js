@@ -148,3 +148,64 @@ test("oldest remaining member is promoted to host when host leaves", async () =>
     await srv.stop();
   }
 });
+
+const http = require("node:http");
+function getJson(url) {
+  return new Promise((resolve, reject) => {
+    http
+      .get(url, (res) => {
+        let body = "";
+        res.on("data", (d) => (body += d));
+        res.on("end", () =>
+          resolve({
+            status: res.statusCode,
+            json: body ? JSON.parse(body) : null,
+          }),
+        );
+      })
+      .on("error", reject);
+  });
+}
+
+test("status API reports active rooms with counts and video", async () => {
+  const srv = await startServer({ port: 8094, env: { ROOM_GRACE_MS: "5000" } });
+  try {
+    const a = await joinRoom(srv.wsUrl, {
+      roomId: "S1",
+      clientId: "c1",
+      displayName: "Ann",
+      videoUrl: "hotstar.com/live",
+      platform: "hotstar",
+    });
+    a.ws.send(
+      JSON.stringify({
+        type: "state-update",
+        time: 10,
+        paused: false,
+        videoUrl: "hotstar.com/live",
+      }),
+    );
+    await wait(100);
+
+    const list = await getJson(srv.baseUrl + "/api/rooms/status?ids=S1,NOPE");
+    assert.strictEqual(list.status, 200);
+    const s1 = list.json.rooms.find((r) => r.roomId === "S1");
+    assert.strictEqual(s1.active, true);
+    assert.strictEqual(s1.count, 1);
+    assert.strictEqual(s1.videoUrl, "hotstar.com/live");
+    const nope = list.json.rooms.find((r) => r.roomId === "NOPE");
+    assert.strictEqual(nope.active, false);
+    assert.strictEqual(nope.count, 0);
+
+    const single = await getJson(srv.baseUrl + "/api/room/S1");
+    assert.strictEqual(single.status, 200);
+    assert.strictEqual(single.json.platform, "hotstar");
+
+    const missing = await getJson(srv.baseUrl + "/api/room/GHOST");
+    assert.strictEqual(missing.status, 404);
+
+    a.ws.close();
+  } finally {
+    await srv.stop();
+  }
+});

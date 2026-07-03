@@ -33,6 +33,31 @@ const httpServer = http.createServer((req, res) => {
     return;
   }
 
+  if (url.pathname === "/api/rooms/status") {
+    const ids = (url.searchParams.get("ids") || "")
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    console.log(`[HTTP]   → /api/rooms/status ids=[${ids.join(",")}]`);
+    const payload = { rooms: ids.map(roomStatus) };
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify(payload));
+    return;
+  }
+
+  if (url.pathname.startsWith("/api/room/")) {
+    const id = decodeURIComponent(url.pathname.slice("/api/room/".length));
+    console.log(`[HTTP]   → /api/room/${id}`);
+    if (!roomState.has(id)) {
+      res.writeHead(404, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "not-found" }));
+      return;
+    }
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify(roomStatus(id)));
+    return;
+  }
+
   if (url.pathname.startsWith("/room/")) {
     console.log(`[HTTP]   → /room/* → room.html`);
     fs.readFile(path.join(__dirname, "room.html"), (err, data) => {
@@ -149,6 +174,28 @@ function participantsList(roomId) {
     name: c.name,
     voice: !!c.voice,
   }));
+}
+
+function roomStatus(roomId) {
+  const state = roomState.get(roomId);
+  if (!state)
+    return {
+      roomId,
+      active: false,
+      count: 0,
+      platform: null,
+      videoUrl: null,
+      title: null,
+    };
+  const room = rooms.get(roomId);
+  return {
+    roomId,
+    active: true,
+    count: room ? room.size : 0,
+    platform: state.platform || null,
+    videoUrl: state.videoUrl || null,
+    title: state.title || null,
+  };
 }
 
 function voiceCount(roomId) {
