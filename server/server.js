@@ -5,11 +5,13 @@ const fs = require("fs");
 const path = require("path");
 const { WebSocketServer } = require("ws");
 const { mintToken, LK_READY } = require("./livekit");
+const { sweepClients } = require("./keepalive");
 
 const PORT = process.env.PORT || 8080;
 const MAX_NAME_LEN = 32;
 const MAX_CHAT_LEN = 500;
 const VOICE_CAP = 4;
+const PING_INTERVAL_MS = Number(process.env.PING_INTERVAL_MS) || 30000;
 const ROOM_GRACE_MS = Number(process.env.ROOM_GRACE_MS) || 300000;
 
 const rooms = new Map(); // roomId → Map<ws, { role, id, name, voice: boolean }>
@@ -95,6 +97,11 @@ const httpServer = http.createServer((req, res) => {
 });
 
 const wss = new WebSocketServer({ server: httpServer });
+const keepAlive = setInterval(
+  () => sweepClients(wss.clients),
+  PING_INTERVAL_MS,
+);
+wss.on("close", () => clearInterval(keepAlive));
 httpServer.listen(PORT, () =>
   console.log(`[SERVER] Watch Party running on port ${PORT}`),
 );
@@ -325,6 +332,11 @@ function promoteNewHost(roomId) {
 // ── connection ───────────────────────────────────────────────────────────────
 
 wss.on("connection", (ws, req) => {
+  ws.isAlive = true;
+  ws.on("pong", () => {
+    ws.isAlive = true;
+  });
+
   const ip = req?.socket?.remoteAddress || "unknown";
   console.log(`[WS] connection opened from ${ip}`);
 
