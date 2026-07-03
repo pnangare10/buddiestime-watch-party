@@ -51,6 +51,7 @@ class MainActivity : AppCompatActivity() {
     private val RC_MIC = 42
     private lateinit var fullscreenContainer: FrameLayout
     private lateinit var prefs: SharedPreferences
+    private lateinit var recentRooms: RecentRoomsStore
 
     private var fullscreenView: View? = null
     private var fullscreenCallback: WebChromeClient.CustomViewCallback? = null
@@ -90,7 +91,7 @@ class MainActivity : AppCompatActivity() {
                         if (!video) return;
                         console.log('[HWP] periodic state-update: t=' + video.currentTime.toFixed(2) + ' paused=' + video.paused + ' url=' + window.location.href);
                         HwpBridge.onStateUpdate(video.currentTime, video.paused, window.location.href);
-                    }, 2000);
+                    }, 5000);
                 }
             };
 
@@ -203,6 +204,7 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        recentRooms = RecentRoomsStore(prefs)
 
         val serviceName = intent.getStringExtra("service") ?: "hotstar"
         currentService = getStreamingService(serviceName)
@@ -262,9 +264,17 @@ class MainActivity : AppCompatActivity() {
 
         val testServer = intent.getStringExtra("hwp_server")
         val testRoom   = intent.getStringExtra("hwp_room")
+        val joinRoomId = intent.getStringExtra("roomId")
         if (testServer != null && testRoom != null) {
             Log.d(TAG, "debug auto-connect: $testServer / $testRoom")
             connectToParty(testServer, testRoom)
+        } else if (intent.getBooleanExtra("join", false)) {
+            if (joinRoomId.isNullOrBlank()) {
+                Log.w(TAG, "home-join requested but roomId missing/blank — ignoring")
+            } else {
+                Log.d(TAG, "home-join auto-connect: room=$joinRoomId")
+                connectToParty(Config.SERVER_URL, joinRoomId)
+            }
         }
     }
 
@@ -359,6 +369,7 @@ class MainActivity : AppCompatActivity() {
         val dialogView = layoutInflater.inflate(R.layout.dialog_join_party, null)
         val etServer = dialogView.findViewById<TextInputEditText>(R.id.etServer)
         val etRoom = dialogView.findViewById<TextInputEditText>(R.id.etRoom)
+        etServer.setText(Config.SERVER_URL)
 
         val dialog = AlertDialog.Builder(this)
             .setTitle("Watch Party")
@@ -371,13 +382,11 @@ class MainActivity : AppCompatActivity() {
                 else Toast.makeText(this, "Enter a room ID to join", Toast.LENGTH_SHORT).show()
             }
             .setNeutralButton("Create") { _, _ ->
-                val server = etServer.text?.toString()?.trim().orEmpty()
-                if (server.isNotEmpty()) {
-                    val room = generateRoomId()
-                    Log.d(TAG, "Create click server=$server generatedRoom=$room")
-                    connectToParty(server, room)
-                    Toast.makeText(this, "Room created: $room", Toast.LENGTH_LONG).show()
-                }
+                val server = etServer.text?.toString()?.trim().takeUnless { it.isNullOrEmpty() } ?: Config.SERVER_URL
+                val room = generateRoomId()
+                Log.d(TAG, "Create click server=$server generatedRoom=$room")
+                connectToParty(server, room)
+                Toast.makeText(this, "Room created: $room", Toast.LENGTH_LONG).show()
             }
             .setNegativeButton("Cancel", null)
             .create()
@@ -462,13 +471,25 @@ class MainActivity : AppCompatActivity() {
             },
             onVoiceParticipants = { list ->
                 Log.d(TAG, "onVoiceParticipants count=${list.size}")
-            }
+            },
+            onReconnecting = { attempt ->
+                Log.d(TAG, "onReconnecting attempt=$attempt")
+                tvStatus.text = "Reconnecting… (#$attempt)"
+                tvStatus.visibility = View.VISIBLE
+            },
         )
 
         val platform = currentService?.name ?: "android"
         manager?.connect(serverUrl, room, platform, currentPageUrl, name)
         tvStatus.text = "Connecting…"
         tvStatus.visibility = View.VISIBLE
+
+        recentRooms.add(RecentRoom(
+            roomId = room,
+            platform = currentService?.name ?: "hotstar",
+            videoUrl = currentPageUrl,
+            lastJoined = System.currentTimeMillis()
+        ))
     }
 
     private fun leaveParty() {
