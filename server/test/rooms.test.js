@@ -112,3 +112,39 @@ test("room is gone after the grace window expires", async () => {
     await srv.stop();
   }
 });
+
+test("oldest remaining member is promoted to host when host leaves", async () => {
+  const srv = await startServer({ port: 8093, env: { ROOM_GRACE_MS: "5000" } });
+  try {
+    const a = await joinRoom(srv.wsUrl, {
+      roomId: "R3",
+      clientId: "host1",
+      displayName: "Ann",
+      videoUrl: "hotstar.com/z",
+      platform: "hotstar",
+    });
+    assert.strictEqual(a.joined.role, "host");
+    const b = await joinRoom(srv.wsUrl, {
+      roomId: "R3",
+      clientId: "guest1",
+      displayName: "Bob",
+      videoUrl: "hotstar.com/z",
+      platform: "hotstar",
+    });
+    assert.strictEqual(b.joined.role, "guest");
+
+    const promoted = new Promise((resolve) => {
+      b.ws.on("message", (raw) => {
+        const m = JSON.parse(raw);
+        if (m.type === "role") resolve(m);
+      });
+    });
+    a.ws.close(); // host leaves
+    const roleMsg = await promoted;
+    assert.strictEqual(roleMsg.role, "host");
+    assert.strictEqual(roleMsg.clientId, "guest1");
+    b.ws.close();
+  } finally {
+    await srv.stop();
+  }
+});

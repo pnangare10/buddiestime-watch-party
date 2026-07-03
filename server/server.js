@@ -262,6 +262,19 @@ function scheduleRoomExpiry(roomId) {
   roomGraceTimers.set(roomId, timer);
 }
 
+function promoteNewHost(roomId) {
+  const room = rooms.get(roomId);
+  if (!room || room.size === 0) return null;
+  const alreadyHost = [...room.values()].some((c) => c.role === "host");
+  if (alreadyHost) return null;
+  const [ws, info] = [...room.entries()][0]; // oldest surviving member (insertion order)
+  info.role = "host";
+  console.log(`[${roomId}] promoting ${info.id}(${info.name}) → host`);
+  if (ws.readyState === 1)
+    ws.send(JSON.stringify({ type: "role", role: "host", clientId: info.id }));
+  return info;
+}
+
 // ── connection ───────────────────────────────────────────────────────────────
 
 wss.on("connection", (ws, req) => {
@@ -580,6 +593,10 @@ wss.on("connection", (ws, req) => {
       scheduleRoomExpiry(roomId);
       console.log(`[${roomId}] now empty — kept alive for grace window`);
     } else {
+      if (leaving?.role === "host") {
+        console.log(`[${roomId}] host left — promoting a replacement`);
+        promoteNewHost(roomId);
+      }
       broadcastParticipants(roomId, "member-left");
       if (leaving?.voice) {
         console.log(
