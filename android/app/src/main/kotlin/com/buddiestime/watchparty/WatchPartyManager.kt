@@ -143,11 +143,16 @@ class WatchPartyManager(
             "joined" -> {
                 role = msg.optString("role")
                 val name = msg.optString("name")
-                Log.d(TAG, "joined as role=$role name=$name videoUrl=${msg.optString("videoUrl")}")
+                val existed = msg.optBoolean("existed", false)
+                Log.d(TAG, "joined as role=$role name=$name videoUrl=${msg.optString("videoUrl")} existed=$existed")
                 onStatusChange(if (role == "host") "● Host" else "● Guest")
                 onRoleAssigned(role!!)
-                if (role == "guest" && msg.has("time")) {
-                    Log.d(TAG, "joined — applying initial sync (guest)")
+                // Guests always adopt the room's authoritative state. A rejoining host only
+                // adopts it when the room already existed server-side (a real resume) — not
+                // when this join just created the room (that state is merely an echo of what
+                // we ourselves submitted, and applying it would pause/reset our own fresh video).
+                if (msg.has("time") && (role == "guest" || existed)) {
+                    Log.d(TAG, "joined — applying initial sync (role=$role existed=$existed)")
                     onSyncCommand(
                         msg.optDouble("time", 0.0),
                         msg.optBoolean("paused", true),

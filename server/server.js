@@ -392,7 +392,8 @@ wss.on("connection", (ws, req) => {
       roomId = incomingRoom;
       clientId = incomingId;
 
-      if (!rooms.has(roomId)) {
+      const roomExisted = rooms.has(roomId);
+      if (!roomExisted) {
         console.log(`[${roomId}] room does not exist yet → CREATE`);
         rooms.set(roomId, new Map());
         clientsById.set(roomId, new Map());
@@ -444,6 +445,7 @@ wss.on("connection", (ws, req) => {
         videoUrl: state.videoUrl,
         time: state.time,
         paused: state.paused,
+        existed: roomExisted,
       };
       console.log(
         `[${roomId}] → sending joined payload:`,

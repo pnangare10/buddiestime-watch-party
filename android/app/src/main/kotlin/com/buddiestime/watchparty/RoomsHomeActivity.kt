@@ -37,7 +37,7 @@ class RoomsHomeActivity : AppCompatActivity() {
         tvEmpty = findViewById(R.id.tvEmpty)
 
         val rv = findViewById<RecyclerView>(R.id.rvRecent)
-        adapter = RecentAdapter { room -> joinRoom(room.roomId, room.platform) }
+        adapter = RecentAdapter { room -> joinRoom(room.roomId, room.platform, room.videoUrl) }
         rv.layoutManager = LinearLayoutManager(this)
         rv.adapter = adapter
 
@@ -73,15 +73,16 @@ class RoomsHomeActivity : AppCompatActivity() {
         val code = raw?.trim().orEmpty()
         if (code.isEmpty()) { Toast.makeText(this, "Enter a room code", Toast.LENGTH_SHORT).show(); return }
         val known = all.firstOrNull { it.roomId.equals(code, ignoreCase = true) }
-        joinRoom(code, known?.platform ?: "hotstar")
+        joinRoom(code, known?.platform ?: "hotstar", known?.videoUrl)
     }
 
-    private fun joinRoom(roomId: String, platform: String) {
-        Log.d(TAG, "joinRoom roomId=$roomId platform=$platform")
+    private fun joinRoom(roomId: String, platform: String, videoUrl: String? = null) {
+        Log.d(TAG, "joinRoom roomId=$roomId platform=$platform videoUrl=$videoUrl")
         startActivity(Intent(this, MainActivity::class.java).apply {
             putExtra("service", platform)
             putExtra("roomId", roomId)
             putExtra("join", true)
+            if (!videoUrl.isNullOrBlank()) putExtra("hwp_url", videoUrl)
         })
     }
 

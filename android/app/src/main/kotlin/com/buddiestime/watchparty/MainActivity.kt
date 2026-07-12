@@ -421,6 +421,10 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(this, "Enter your name first (App > restart and pick a name)", Toast.LENGTH_LONG).show()
             return
         }
+        // currentPageUrl only updates once the WebView finishes navigating (async), so right after
+        // onCreate triggers loadUrl(hwp_url) it's still blank — fall back to the intended URL so we
+        // don't send/store an empty videoUrl and clobber the recent-room entry we just used to get here.
+        val effectiveVideoUrl = currentPageUrl.ifBlank { intent.getStringExtra("hwp_url").orEmpty() }
 
         manager = WatchPartyManager(
             onRoleAssigned = { role ->
@@ -480,14 +484,14 @@ class MainActivity : AppCompatActivity() {
         )
 
         val platform = currentService?.name ?: "android"
-        manager?.connect(serverUrl, room, platform, currentPageUrl, name)
+        manager?.connect(serverUrl, room, platform, effectiveVideoUrl, name)
         tvStatus.text = "Connecting…"
         tvStatus.visibility = View.VISIBLE
 
         recentRooms.add(RecentRoom(
             roomId = room,
             platform = currentService?.name ?: "hotstar",
-            videoUrl = currentPageUrl,
+            videoUrl = effectiveVideoUrl,
             lastJoined = System.currentTimeMillis()
         ))
     }
