@@ -1,7 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent">
+
+<LinearLayout
     android:layout_width="match_parent" android:layout_height="match_parent"
-    android:orientation="vertical" android:background="#0F0F1A" android:padding="24dp">
+    android:orientation="vertical" android:background="@color/berry_night" android:padding="24dp">
 
     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
         android:text="Watch Party" android:textColor="#FFFFFF" android:textSize="26sp"
@@ -35,7 +38,17 @@
         android:layout_height="0dp" android:layout_weight="1" />
 
     <TextView android:id="@+id/tvEmpty" android:layout_width="match_parent"
-        android:layout_height="wrap_content" android:text="No recent rooms yet"
-        android:textColor="#606080" android:gravity="center" android:padding="24dp"
+        android:layout_height="wrap_content" android:text="No movie nights yet — let\'s fix that 🍿"
+        android:textColor="@color/lavender_mist" android:gravity="center" android:padding="24dp"
         android:visibility="gone" />
 </LinearLayout>
+
+<!-- Love-note splash: inflated on cold start only, sits over everything -->
+<ViewStub
+    android:id="@+id/stubSplash"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:inflatedId="@+id/splashOverlay"
+    android:layout="@layout/layout_splash_overlay" />
+
+</FrameLayout>

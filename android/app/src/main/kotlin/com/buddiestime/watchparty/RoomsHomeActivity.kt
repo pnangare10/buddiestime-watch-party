@@ -1,13 +1,18 @@
 package com.buddiestime.watchparty
 
+import android.animation.ObjectAnimator
+import android.animation.PropertyValuesHolder
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
 import android.os.Bundle
+import android.provider.Settings
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.view.ViewStub
+import android.view.animation.LinearInterpolator
 import android.view.inputmethod.EditorInfo
 import android.widget.TextView
 import android.widget.Toast
@@ -34,6 +39,12 @@ class RoomsHomeActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         FlufflesTheme.apply(this)
         setContentView(R.layout.activity_rooms_home)
+        if (savedInstanceState == null) {
+            Log.d(TAG, "cold start → showing love-note splash")
+            showLoveNoteSplash()
+        } else {
+            Log.d(TAG, "recreation (savedInstanceState present) → skipping splash")
+        }
         store = RecentRoomsStore(getSharedPreferences(PREFS, Context.MODE_PRIVATE))
         tvEmpty = findViewById(R.id.tvEmpty)
 
@@ -55,6 +66,51 @@ class RoomsHomeActivity : AppCompatActivity() {
             override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
             override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
         })
+    }
+
+    // ── Love-note splash (cold start only) ──────────────────────────────────
+    private fun showLoveNoteSplash() {
+        val stub = findViewById<ViewStub>(R.id.stubSplash)
+        if (stub == null) { Log.w(TAG, "splash: stub missing — skipping"); return }
+        val overlay = stub.inflate()
+        val line = FlirtyLines.pick()
+        overlay.findViewById<TextView>(R.id.tvFlirtyLine).text = line
+        overlay.findViewById<TextView>(R.id.tvSplashSignature).text = "— ${Personalization.HIS_NAME} 💌"
+
+        // Heart pulse — skipped when the user has animations turned off
+        val animScale = Settings.Global.getFloat(contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f)
+        var pulse: ObjectAnimator? = null
+        if (animScale > 0f) {
+            val heart = overlay.findViewById<TextView>(R.id.tvSplashHeart)
+            pulse = ObjectAnimator.ofPropertyValuesHolder(
+                heart,
+                PropertyValuesHolder.ofFloat(View.SCALE_X, 1f, 1.18f),
+                PropertyValuesHolder.ofFloat(View.SCALE_Y, 1f, 1.18f),
+            ).apply {
+                duration = 550
+                repeatMode = ObjectAnimator.REVERSE
+                repeatCount = ObjectAnimator.INFINITE
+                interpolator = LinearInterpolator()
+                start()
+            }
+        } else {
+            Log.d(TAG, "splash: animations disabled (scale=$animScale) — static heart")
+        }
+
+        var dismissed = false
+        fun dismiss(reason: String) {
+            if (dismissed) { Log.d(TAG, "splash: dismiss($reason) ignored — already dismissed"); return }
+            dismissed = true
+            Log.d(TAG, "splash: dismissing ($reason)")
+            pulse?.cancel()
+            overlay.animate().alpha(0f).setDuration(350).withEndAction {
+                overlay.visibility = View.GONE
+            }.start()
+        }
+
+        overlay.setOnClickListener { dismiss("tap-skip") }
+        overlay.postDelayed({ dismiss("auto") }, 1800)
+        Log.d(TAG, "splash: shown line=\"$line\"")
     }
 
     override fun onResume() {
