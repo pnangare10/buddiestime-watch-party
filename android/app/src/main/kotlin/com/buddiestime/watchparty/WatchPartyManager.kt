@@ -29,6 +29,7 @@ class WatchPartyManager(
     private val onVoiceToken: (token: String, url: String, lkRoom: String) -> Unit = { _, _, _ -> },
     private val onVoiceParticipants: (list: List<VoiceParticipant>) -> Unit = {},
     private val onReconnecting: (attempt: Int) -> Unit = {},
+    private val onReaction: (emoji: String) -> Unit = {},
 ) {
     @Volatile var role: String? = null
         private set
@@ -220,6 +221,11 @@ class WatchPartyManager(
                 Log.d(TAG, "voice-participants update: ${list.size}")
                 onVoiceParticipants(list)
             }
+            "reaction" -> {
+                val emoji = msg.optString("emoji", "💗")
+                Log.d(TAG, "reaction received: $emoji from=${msg.optString("from")}")
+                onReaction(emoji)
+            }
             else -> Log.w(TAG, "unknown message type: $type (raw: ${msg.toString().take(160)})")
         }
     }
@@ -253,6 +259,18 @@ class WatchPartyManager(
         }
         val sent = w.send(payload.toString())
         Log.d(TAG, "sendChat: ws.send returned $sent")
+    }
+
+    fun sendReaction(emoji: String) {
+        Log.d(TAG, "sendReaction($emoji)")
+        val w = ws
+        if (w == null) { Log.w(TAG, "sendReaction: ws is null"); return }
+        val payload = JSONObject().apply {
+            put("type", "reaction")
+            put("emoji", emoji)
+        }
+        val sent = w.send(payload.toString())
+        Log.d(TAG, "sendReaction: ws.send returned $sent")
     }
 
     fun requestVoiceToken() {

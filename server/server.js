@@ -621,6 +621,19 @@ wss.on("connection", (ws, req) => {
       return;
     }
 
+    // ── reaction (any client → everyone else; sender renders locally) ────
+    if (msg.type === "reaction") {
+      const emoji =
+        typeof msg.emoji === "string" && msg.emoji.trim()
+          ? msg.emoji.trim().slice(0, 8)
+          : "💗";
+      console.log(
+        `[${roomId}] REACTION ${emoji} from ${senderInfo.role}:${senderInfo.id}(${senderInfo.name}) → relaying`,
+      );
+      broadcast(roomId, ws, { type: "reaction", emoji, from: senderInfo.id });
+      return;
+    }
+
     console.log(
       `[${roomId}] unknown message type="${msg.type}" from clientId=${clientId}`,
     );

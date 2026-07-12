@@ -151,15 +151,17 @@
 
         <LinearLayout
             android:id="@+id/rowOverlayInput"
-            android:layout_width="280dp"
+            android:layout_width="320dp"
             android:layout_height="wrap_content"
             android:layout_marginTop="6dp"
+            android:gravity="center_vertical"
             android:orientation="horizontal"
             android:visibility="gone">
 
             <EditText
                 android:id="@+id/etOverlayInput"
-                android:layout_width="match_parent"
+                android:layout_width="0dp"
+                android:layout_weight="1"
                 android:layout_height="wrap_content"
                 android:background="@drawable/bg_chat_bubble"
                 android:paddingStart="12dp"
@@ -179,6 +181,16 @@
                 android:imeOptions="actionSend"
                 android:singleLine="true"
                 android:importantForAutofill="no" />
+
+            <TextView
+                android:id="@+id/btnSendHeart"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:contentDescription="Send a heart"
+                android:padding="6dp"
+                android:text="💗"
+                android:textSize="24sp" />
         </LinearLayout>
     </LinearLayout>
 

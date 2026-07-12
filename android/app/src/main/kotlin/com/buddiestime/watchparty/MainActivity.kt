@@ -71,6 +71,10 @@ class MainActivity : AppCompatActivity() {
     private var unreadChatCount = 0
     private lateinit var chatOverlay: ChatOverlayController
 
+    // Floating heart reactions
+    private var activeHearts = 0
+    private val maxHearts = 12
+
     private val SYNC_SCRIPT = """
         (function() {
             if (window.__hwpNative) return;
@@ -258,6 +262,11 @@ class MainActivity : AppCompatActivity() {
         fabChat.setOnClickListener {
             Log.d(TAG, "fabChat click → toggle overlay")
             chatOverlay.toggle()
+        }
+        findViewById<TextView>(R.id.btnSendHeart).setOnClickListener {
+            Log.d(TAG, "btnSendHeart click → sending reaction")
+            manager?.sendReaction("💗")
+            showFloatingHearts("💗", 4)   // sender sees their own burst locally
         }
         setupMicButton()
 
@@ -474,8 +483,14 @@ class MainActivity : AppCompatActivity() {
             },
             onParticipantsChange = { list ->
                 Log.d(TAG, "onParticipantsChange count=${list.size}")
+                val prevCount = participants.size
                 participants = list
                 chatOverlay.setPeers(list)
+                if (prevCount < 2 && list.size >= 2) {
+                    Log.d(TAG, "together now ($prevCount→${list.size}) → heart burst + toast")
+                    Toast.makeText(this, "you're watching together 💗", Toast.LENGTH_SHORT).show()
+                    showFloatingHearts("💗", 5)
+                }
             },
             onServerError = { reason, detail ->
                 Log.w(TAG, "onServerError reason=$reason detail=$detail")
@@ -492,6 +507,10 @@ class MainActivity : AppCompatActivity() {
                 Log.d(TAG, "onReconnecting attempt=$attempt")
                 tvStatus.text = "coming back to you… (#$attempt)"
                 tvStatus.visibility = View.VISIBLE
+            },
+            onReaction = { emoji ->
+                Log.d(TAG, "onReaction emoji=$emoji → floating hearts")
+                showFloatingHearts(emoji)
             },
         )
 
@@ -653,6 +672,60 @@ class MainActivity : AppCompatActivity() {
 
     private fun statusForRole(role: String?): String =
         if (role == "host") "💗 our room is live" else "💗 together now"
+
+    /**
+     * Floats a burst of emoji hearts up from the bottom-right, over whatever
+     * is on screen (WebView or fullscreen video). Hard-capped so reaction
+     * spam can't leak views or jank playback; every view removes itself.
+     */
+    private fun showFloatingHearts(emoji: String, burst: Int = 6) {
+        val root = findViewById<FrameLayout>(android.R.id.content)
+        val w = root.width.takeIf { it > 0 } ?: resources.displayMetrics.widthPixels
+        val h = root.height.takeIf { it > 0 } ?: resources.displayMetrics.heightPixels
+        val density = resources.displayMetrics.density
+        Log.d(TAG, "showFloatingHearts emoji=$emoji burst=$burst active=$activeHearts")
+        repeat(burst) { i ->
+            if (activeHearts >= maxHearts) {
+                Log.d(TAG, "  heart cap ($maxHearts) reached — dropping remainder")
+                return
+            }
+            activeHearts++
+            val tv = TextView(this).apply {
+                text = emoji
+                textSize = (26 + Math.random() * 10).toFloat()
+                alpha = 0f
+            }
+            val lp = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+            )
+            lp.leftMargin = (w * (0.55 + Math.random() * 0.32)).toInt()
+            lp.topMargin = h - (140 * density).toInt()
+            root.addView(tv, lp)
+
+            val rise = (h * (0.35 + Math.random() * 0.25)).toFloat()
+            val drift = ((Math.random() - 0.5) * 140).toFloat()
+            val duration = (1200 + Math.random() * 800).toLong()
+            tv.animate()
+                .alpha(1f)
+                .setStartDelay(i * 90L)
+                .setDuration(150)
+                .withEndAction {
+                    tv.animate()
+                        .translationY(-rise)
+                        .translationX(drift)
+                        .alpha(0f)
+                        .setDuration(duration)
+                        .withEndAction {
+                            root.removeView(tv)
+                            activeHearts--
+                            Log.d(TAG, "  heart removed, active=$activeHearts")
+                        }
+                        .start()
+                }
+                .start()
+        }
+    }
 
     private fun updateMicAppearance() {
         val tint = when {
