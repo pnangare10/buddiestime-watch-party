@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <!-- Four-point star -->
+    <path
+        android:fillColor="@color/brand_hotstar"
+        android:pathData="M24,5 L28.2,19.8 L43,24 L28.2,28.2 L24,43 L19.8,28.2 L5,24 L19.8,19.8 Z" />
+</vector>

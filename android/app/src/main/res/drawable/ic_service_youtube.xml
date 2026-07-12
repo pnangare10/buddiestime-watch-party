@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <!-- Rounded TV body -->
+    <path
+        android:fillColor="@color/brand_youtube"
+        android:pathData="M12,12 h24 a7,7 0 0 1 7,7 v10 a7,7 0 0 1 -7,7 h-24 a7,7 0 0 1 -7,-7 v-10 a7,7 0 0 1 7,-7 Z" />
+    <!-- Play triangle -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M20,18 L30,24 L20,30 Z" />
+</vector>

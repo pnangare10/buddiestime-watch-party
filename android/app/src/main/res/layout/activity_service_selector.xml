@@ -1,107 +1,200 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:gravity="center"
-    android:padding="24dp"
-    android:background="#000000">
+    android:background="@color/berry_night"
+    android:fillViewport="true">
 
-    <TextView
-        android:layout_width="wrap_content"
+    <LinearLayout
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Choose Your Streaming Service"
-        android:textSize="24sp"
-        android:textStyle="bold"
-        android:textColor="#FFFFFF"
-        android:layout_marginBottom="32dp" />
+        android:orientation="vertical"
+        android:padding="20dp">
 
-    <com.google.android.material.card.MaterialCardView
-        android:id="@+id/cardHotstar"
-        android:layout_width="match_parent"
-        android:layout_height="120dp"
-        android:layout_marginBottom="16dp"
-        app:cardBackgroundColor="#1F2937"
-        app:cardElevation="8dp">
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:fontFamily="@font/fredoka"
+            android:gravity="center"
+            android:text="What are we watching tonight?"
+            android:textColor="@color/cream"
+            android:textSize="26sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:layout_marginBottom="24dp"
+            android:fontFamily="@font/nunito"
+            android:gravity="center"
+            android:text="pick our screen 🎬"
+            android:textColor="@color/lavender_mist"
+            android:textSize="15sp" />
+
         <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:gravity="center"
-            android:orientation="vertical">
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Hotstar"
-                android:textSize="20sp"
-                android:textStyle="bold"
-                android:textColor="#FFFFFF" />
-        </LinearLayout>
-    </com.google.android.material.card.MaterialCardView>
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
 
-    <com.google.android.material.card.MaterialCardView
-        android:id="@+id/cardNetflix"
-        android:layout_width="match_parent"
-        android:layout_height="120dp"
-        android:layout_marginBottom="16dp"
-        app:cardBackgroundColor="#1F2937"
-        app:cardElevation="8dp">
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardHotstar"
+                android:layout_width="0dp"
+                android:layout_height="140dp"
+                android:layout_margin="6dp"
+                android:layout_weight="1"
+                android:clickable="true"
+                android:focusable="true"
+                app:cardBackgroundColor="@color/plum_surface"
+                app:cardCornerRadius="24dp"
+                app:cardElevation="4dp"
+                app:rippleColor="@color/plum_surface_hi"
+                app:strokeColor="#401F80E0"
+                app:strokeWidth="1dp">
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:gravity="center"
+                    android:orientation="vertical">
+                    <ImageView
+                        android:layout_width="44dp"
+                        android:layout_height="44dp"
+                        android:contentDescription="Hotstar"
+                        android:src="@drawable/ic_service_hotstar" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:fontFamily="@font/fredoka"
+                        android:text="Hotstar"
+                        android:textColor="@color/cream"
+                        android:textSize="15sp" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardNetflix"
+                android:layout_width="0dp"
+                android:layout_height="140dp"
+                android:layout_margin="6dp"
+                android:layout_weight="1"
+                android:clickable="true"
+                android:focusable="true"
+                app:cardBackgroundColor="@color/plum_surface"
+                app:cardCornerRadius="24dp"
+                app:cardElevation="4dp"
+                app:rippleColor="@color/plum_surface_hi"
+                app:strokeColor="#40E50914"
+                app:strokeWidth="1dp">
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:gravity="center"
+                    android:orientation="vertical">
+                    <ImageView
+                        android:layout_width="44dp"
+                        android:layout_height="44dp"
+                        android:contentDescription="Netflix"
+                        android:src="@drawable/ic_service_netflix" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:fontFamily="@font/fredoka"
+                        android:text="Netflix"
+                        android:textColor="@color/cream"
+                        android:textSize="15sp" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+        </LinearLayout>
+
         <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:gravity="center"
-            android:orientation="vertical">
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Netflix"
-                android:textSize="20sp"
-                android:textStyle="bold"
-                android:textColor="#FFFFFF" />
-        </LinearLayout>
-    </com.google.android.material.card.MaterialCardView>
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
 
-    <com.google.android.material.card.MaterialCardView
-        android:id="@+id/cardPrimeVideo"
-        android:layout_width="match_parent"
-        android:layout_height="120dp"
-        android:layout_marginBottom="16dp"
-        app:cardBackgroundColor="#1F2937"
-        app:cardElevation="8dp">
-        <LinearLayout
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardPrimeVideo"
+                android:layout_width="0dp"
+                android:layout_height="140dp"
+                android:layout_margin="6dp"
+                android:layout_weight="1"
+                android:clickable="true"
+                android:focusable="true"
+                app:cardBackgroundColor="@color/plum_surface"
+                app:cardCornerRadius="24dp"
+                app:cardElevation="4dp"
+                app:rippleColor="@color/plum_surface_hi"
+                app:strokeColor="#4000A8E1"
+                app:strokeWidth="1dp">
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:gravity="center"
+                    android:orientation="vertical">
+                    <ImageView
+                        android:layout_width="44dp"
+                        android:layout_height="44dp"
+                        android:contentDescription="Prime Video"
+                        android:src="@drawable/ic_service_prime" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:fontFamily="@font/fredoka"
+                        android:text="Prime Video"
+                        android:textColor="@color/cream"
+                        android:textSize="15sp" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardYouTube"
+                android:layout_width="0dp"
+                android:layout_height="140dp"
+                android:layout_margin="6dp"
+                android:layout_weight="1"
+                android:clickable="true"
+                android:focusable="true"
+                app:cardBackgroundColor="@color/plum_surface"
+                app:cardCornerRadius="24dp"
+                app:cardElevation="4dp"
+                app:rippleColor="@color/plum_surface_hi"
+                app:strokeColor="#40FF0000"
+                app:strokeWidth="1dp">
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:gravity="center"
+                    android:orientation="vertical">
+                    <ImageView
+                        android:layout_width="44dp"
+                        android:layout_height="44dp"
+                        android:contentDescription="YouTube"
+                        android:src="@drawable/ic_service_youtube" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:fontFamily="@font/fredoka"
+                        android:text="YouTube"
+                        android:textColor="@color/cream"
+                        android:textSize="15sp" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+        </LinearLayout>
+
+        <TextView
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="22dp"
+            android:fontFamily="@font/nunito"
             android:gravity="center"
-            android:orientation="vertical">
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Prime Video"
-                android:textSize="20sp"
-                android:textStyle="bold"
-                android:textColor="#FFFFFF" />
-        </LinearLayout>
-    </com.google.android.material.card.MaterialCardView>
+            android:text="whatever we pick, it'll be perfect 💞"
+            android:textColor="@color/lavender_mist"
+            android:textSize="13sp" />
 
-    <com.google.android.material.card.MaterialCardView
-        android:id="@+id/cardYouTube"
-        android:layout_width="match_parent"
-        android:layout_height="120dp"
-        app:cardBackgroundColor="#1F2937"
-        app:cardElevation="8dp">
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:gravity="center"
-            android:orientation="vertical">
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="YouTube"
-                android:textSize="20sp"
-                android:textStyle="bold"
-                android:textColor="#FFFFFF" />
-        </LinearLayout>
-    </com.google.android.material.card.MaterialCardView>
-
-</LinearLayout>
+    </LinearLayout>
+</ScrollView>

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <!-- Play triangle -->
+    <path
+        android:fillColor="@color/brand_prime"
+        android:pathData="M18,9 L34,18.5 L18,28 Z" />
+    <!-- Prime smile swoosh -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="@color/brand_prime"
+        android:strokeWidth="3.4"
+        android:strokeLineCap="round"
+        android:pathData="M10,33 Q24,42 36,34.5" />
+    <!-- Arrowhead -->
+    <path
+        android:fillColor="@color/brand_prime"
+        android:pathData="M38.8,30.4 L38,37.4 L31.6,35.2 Z" />
+</vector>
