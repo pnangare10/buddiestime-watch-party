@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- ── Fluffles "late-night cinema for two" palette ─────────────────── -->
+
+    <!-- Base night surfaces -->
+    <color name="berry_night">#1B0E1F</color>
+    <color name="plum_surface">#2B1832</color>
+    <color name="plum_surface_hi">#3A2244</color>
+
+    <!-- Text -->
+    <color name="cream">#FFF3F0</color>
+    <color name="lavender_mist">#B9A3C7</color>
+
+    <!-- Fixed accents -->
+    <color name="candle_glow">#FFC9A3</color>
+    <color name="mint_ok">#9FE6C5</color>
+    <color name="error_rose">#FF9AA2</color>
+    <color name="on_accent">#33122B</color>
+
+    <!-- Daily-rotating accent sets (picked by FlufflesTheme) -->
+    <color name="accent_blush">#F7A8C4</color>
+    <color name="accent_blush_deep">#E27BA4</color>
+    <color name="accent_blush_container">#46243B</color>
+
+    <color name="accent_lavender">#C9A8F7</color>
+    <color name="accent_lavender_deep">#A87BE2</color>
+    <color name="accent_lavender_container">#372550</color>
+
+    <color name="accent_peach">#FFB699</color>
+    <color name="accent_peach_deep">#F08A66</color>
+    <color name="accent_peach_container">#4A2A20</color>
+
+    <!-- Streaming service brand colors -->
+    <color name="brand_hotstar">#1F80E0</color>
+    <color name="brand_netflix">#E50914</color>
+    <color name="brand_prime">#00A8E1</color>
+    <color name="brand_youtube">#FF0000</color>
+
+    <!-- Component colors (over-video overlays need scrims, not surfaces) -->
+    <color name="badge_bg">#E62B1832</color>
+    <color name="chat_scrim">#66000000</color>
+    <color name="chat_bubble_stroke">#59F7A8C4</color>
+</resources>

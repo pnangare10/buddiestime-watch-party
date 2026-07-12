@@ -203,6 +203,7 @@ class MainActivity : AppCompatActivity() {
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        FlufflesTheme.apply(this)
         prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         recentRooms = RecentRoomsStore(prefs)
 

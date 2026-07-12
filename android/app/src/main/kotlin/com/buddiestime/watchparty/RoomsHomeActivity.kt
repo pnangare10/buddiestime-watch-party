@@ -32,6 +32,7 @@ class RoomsHomeActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        FlufflesTheme.apply(this)
         setContentView(R.layout.activity_rooms_home)
         store = RecentRoomsStore(getSharedPreferences(PREFS, Context.MODE_PRIVATE))
         tvEmpty = findViewById(R.id.tvEmpty)

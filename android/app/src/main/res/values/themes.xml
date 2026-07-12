@@ -1,11 +1,133 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+
+    <!-- ── Base theme: "late-night cinema for two" ──────────────────────
+         The accent (colorPrimary etc.) defaults to blush; FlufflesTheme
+         applies one of the ThemeOverlay.Fluffles.Accent.* overlays at
+         runtime so the accent rotates daily. -->
     <style name="Theme.Fluffles" parent="Theme.MaterialComponents.DayNight.NoActionBar">
-        <item name="colorPrimary">#1565C0</item>
-        <item name="colorPrimaryVariant">#0D47A1</item>
-        <item name="colorOnPrimary">#FFFFFF</item>
-        <item name="colorSecondary">#FF6D00</item>
-        <item name="colorOnSecondary">#FFFFFF</item>
-        <item name="android:windowBackground">#000000</item>
+        <!-- Color roles -->
+        <item name="colorPrimary">@color/accent_blush</item>
+        <item name="colorPrimaryVariant">@color/accent_blush_deep</item>
+        <item name="colorOnPrimary">@color/on_accent</item>
+        <item name="colorSecondary">@color/candle_glow</item>
+        <item name="colorSecondaryVariant">@color/candle_glow</item>
+        <item name="colorOnSecondary">@color/on_accent</item>
+        <item name="colorSurface">@color/plum_surface</item>
+        <item name="colorOnSurface">@color/cream</item>
+        <item name="android:colorBackground">@color/berry_night</item>
+        <item name="colorOnBackground">@color/cream</item>
+        <item name="colorError">@color/error_rose</item>
+        <item name="colorOnError">@color/on_accent</item>
+        <item name="colorAccent">@color/accent_blush</item>
+        <item name="colorControlActivated">@color/accent_blush</item>
+        <item name="colorControlHighlight">@color/accent_blush_container</item>
+
+        <!-- Window -->
+        <item name="android:windowBackground">@color/berry_night</item>
+        <item name="android:statusBarColor">@color/berry_night</item>
+        <item name="android:navigationBarColor">@color/berry_night</item>
+        <item name="android:windowLightStatusBar">false</item>
+
+        <!-- Text defaults -->
+        <item name="android:textColorPrimary">@color/cream</item>
+        <item name="android:textColorSecondary">@color/lavender_mist</item>
+        <item name="android:textColorHint">@color/lavender_mist</item>
+        <item name="fontFamily">@font/nunito</item>
+        <item name="android:fontFamily">@font/nunito</item>
+
+        <!-- Type scale -->
+        <item name="textAppearanceHeadline5">@style/TextAppearance.Fluffles.Display</item>
+        <item name="textAppearanceHeadline6">@style/TextAppearance.Fluffles.Title</item>
+        <item name="textAppearanceSubtitle1">@style/TextAppearance.Fluffles.Subtitle</item>
+        <item name="textAppearanceButton">@style/TextAppearance.Fluffles.Button</item>
+
+        <!-- Plush shapes -->
+        <item name="shapeAppearanceSmallComponent">@style/ShapeAppearance.Fluffles.Small</item>
+        <item name="shapeAppearanceMediumComponent">@style/ShapeAppearance.Fluffles.Medium</item>
+        <item name="shapeAppearanceLargeComponent">@style/ShapeAppearance.Fluffles.Large</item>
+
+        <!-- Dialogs (MaterialAlertDialogBuilder + AppCompat fallback) -->
+        <item name="materialAlertDialogTheme">@style/ThemeOverlay.Fluffles.Dialog</item>
+        <item name="alertDialogTheme">@style/ThemeOverlay.Fluffles.Dialog</item>
     </style>
+
+    <!-- ── Daily accent overlays (applied at runtime by FlufflesTheme) ── -->
+    <style name="ThemeOverlay.Fluffles.Accent.Blush" parent="">
+        <item name="colorPrimary">@color/accent_blush</item>
+        <item name="colorPrimaryVariant">@color/accent_blush_deep</item>
+        <item name="colorAccent">@color/accent_blush</item>
+        <item name="colorControlActivated">@color/accent_blush</item>
+        <item name="colorControlHighlight">@color/accent_blush_container</item>
+    </style>
+
+    <style name="ThemeOverlay.Fluffles.Accent.Lavender" parent="">
+        <item name="colorPrimary">@color/accent_lavender</item>
+        <item name="colorPrimaryVariant">@color/accent_lavender_deep</item>
+        <item name="colorAccent">@color/accent_lavender</item>
+        <item name="colorControlActivated">@color/accent_lavender</item>
+        <item name="colorControlHighlight">@color/accent_lavender_container</item>
+    </style>
+
+    <style name="ThemeOverlay.Fluffles.Accent.Peach" parent="">
+        <item name="colorPrimary">@color/accent_peach</item>
+        <item name="colorPrimaryVariant">@color/accent_peach_deep</item>
+        <item name="colorAccent">@color/accent_peach</item>
+        <item name="colorControlActivated">@color/accent_peach</item>
+        <item name="colorControlHighlight">@color/accent_peach_container</item>
+    </style>
+
+    <!-- ── Text appearances ─────────────────────────────────────────────── -->
+    <style name="TextAppearance.Fluffles.Display" parent="TextAppearance.MaterialComponents.Headline5">
+        <item name="fontFamily">@font/fredoka</item>
+        <item name="android:fontFamily">@font/fredoka</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textColor">@color/cream</item>
+    </style>
+
+    <style name="TextAppearance.Fluffles.Title" parent="TextAppearance.MaterialComponents.Headline6">
+        <item name="fontFamily">@font/fredoka</item>
+        <item name="android:fontFamily">@font/fredoka</item>
+        <item name="android:textColor">@color/cream</item>
+    </style>
+
+    <style name="TextAppearance.Fluffles.Subtitle" parent="TextAppearance.MaterialComponents.Subtitle1">
+        <item name="fontFamily">@font/nunito</item>
+        <item name="android:fontFamily">@font/nunito</item>
+        <item name="android:textColor">@color/lavender_mist</item>
+    </style>
+
+    <style name="TextAppearance.Fluffles.Button" parent="TextAppearance.MaterialComponents.Button">
+        <item name="fontFamily">@font/fredoka</item>
+        <item name="android:fontFamily">@font/fredoka</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="android:letterSpacing">0.01</item>
+    </style>
+
+    <!-- ── Shapes ───────────────────────────────────────────────────────── -->
+    <style name="ShapeAppearance.Fluffles.Small" parent="ShapeAppearance.MaterialComponents.SmallComponent">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">16dp</item>
+    </style>
+
+    <style name="ShapeAppearance.Fluffles.Medium" parent="ShapeAppearance.MaterialComponents.MediumComponent">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">24dp</item>
+    </style>
+
+    <style name="ShapeAppearance.Fluffles.Large" parent="ShapeAppearance.MaterialComponents.LargeComponent">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">28dp</item>
+    </style>
+
+    <!-- ── Dialogs ──────────────────────────────────────────────────────── -->
+    <style name="ThemeOverlay.Fluffles.Dialog" parent="ThemeOverlay.MaterialComponents.MaterialAlertDialog">
+        <item name="colorSurface">@color/plum_surface</item>
+        <item name="colorPrimary">@color/accent_blush</item>
+        <item name="colorOnSurface">@color/cream</item>
+        <item name="android:textColorPrimary">@color/cream</item>
+        <item name="android:textColorSecondary">@color/lavender_mist</item>
+        <item name="shapeAppearanceOverlay">@style/ShapeAppearance.Fluffles.Medium</item>
+    </style>
+
 </resources>
