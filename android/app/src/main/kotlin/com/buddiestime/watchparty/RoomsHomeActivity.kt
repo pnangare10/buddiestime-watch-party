@@ -27,6 +27,7 @@ import java.util.concurrent.TimeUnit
 
 private const val TAG = "HWP-HOME"
 private const val PREFS = "hwp_prefs"
+private const val SPLASH_DURATION_MS = 3800L  // love-note auto-dismiss; tap skips early
 
 class RoomsHomeActivity : AppCompatActivity() {
     private lateinit var store: RecentRoomsStore
@@ -125,8 +126,8 @@ class RoomsHomeActivity : AppCompatActivity() {
         }
 
         overlay.setOnClickListener { dismiss("tap-skip") }
-        overlay.postDelayed({ dismiss("auto") }, 1800)
-        Log.d(TAG, "splash: shown line=\"$line\"")
+        overlay.postDelayed({ dismiss("auto") }, SPLASH_DURATION_MS)
+        Log.d(TAG, "splash: shown line=\"$line\" (auto-dismiss in ${SPLASH_DURATION_MS}ms)")
     }
 
     override fun onResume() {
