@@ -2,6 +2,7 @@ package com.buddiestime.watchparty
 
 import android.app.AlertDialog
 import android.content.Context
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import android.content.Intent
 import android.content.SharedPreferences
 import android.os.Bundle
@@ -51,9 +52,9 @@ class ServiceSelectorActivity : AppCompatActivity() {
         val view = layoutInflater.inflate(R.layout.dialog_name_prompt, null)
         val et = view.findViewById<TextInputEditText>(R.id.etDisplayName)
 
-        val dialog = AlertDialog.Builder(this)
-            .setTitle("Your name")
-            .setMessage("Pick a display name (1-32 chars). Others will see this in chat.")
+        val dialog = MaterialAlertDialogBuilder(this)
+            .setTitle("What should I call you? 💕")
+            .setMessage("This is the name that shows up in our chat.")
             .setView(view)
             .setCancelable(false)
             .setPositiveButton("OK", null) // override below so we can validate

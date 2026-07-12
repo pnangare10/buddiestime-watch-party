@@ -69,8 +69,11 @@ class ChatOverlayController(
     }
 
     fun setPeers(participants: List<Participant>) {
-        peersView.text = if (participants.isEmpty()) "(no one else here yet)"
-            else "${participants.size} in party"
+        peersView.text = when {
+            participants.isEmpty() -> "waiting for your favorite person…"
+            participants.size == 2 -> "just the two of us 💗"
+            else -> "${participants.size} in party"
+        }
     }
 
     fun bringToFront() {

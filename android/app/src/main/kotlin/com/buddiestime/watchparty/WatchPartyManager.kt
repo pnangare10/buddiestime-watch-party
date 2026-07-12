@@ -52,7 +52,7 @@ class WatchPartyManager(
 
     fun connect(serverUrl: String, roomId: String, platform: String, videoUrl: String, displayName: String) {
         Log.d(TAG, "connect() serverUrl=$serverUrl roomId=$roomId platform=$platform videoUrl=$videoUrl displayName=\"$displayName\"")
-        if (displayName.isBlank()) { Log.w(TAG, "connect aborted — displayName blank"); post { onStatusChange("Name required") }; return }
+        if (displayName.isBlank()) { Log.w(TAG, "connect aborted — displayName blank"); post { onStatusChange("pick your name first") }; return }
 
         val clientId = lastParams?.clientId ?: ("android-" + (Math.random() * 999999).toInt())
         lastParams = JoinParams(serverUrl, roomId, platform, videoUrl, displayName, clientId)
@@ -65,12 +65,12 @@ class WatchPartyManager(
     // is called again, connectionGen changes and this (now-stale) loop bails out —
     // preventing stacked reconnects and posts to a torn-down UI.
     private fun openWithWake(p: JoinParams, gen: Int) {
-        post { onStatusChange("Waking up the server…") }
+        post { onStatusChange("warming up the projector… 🎬") }
         Thread {
             val healthy = pollHealth(Config.healthUrl(p.serverUrl), 60_000, gen)
             Log.d(TAG, "health poll result=$healthy gen=$gen (current=$connectionGen)")
             if (intentionalClose || gen != connectionGen) { Log.d(TAG, "openWithWake aborted — stale/intentional"); return@Thread }
-            if (!healthy) { post { if (gen == connectionGen) { onStatusChange("Server unreachable — retrying…"); scheduleReconnect(gen) } }; return@Thread }
+            if (!healthy) { post { if (gen == connectionGen) { onStatusChange("cinema's not answering — retrying…"); scheduleReconnect(gen) } }; return@Thread }
             post { if (gen == connectionGen && !intentionalClose) openSocket(p, gen) }
         }.start()
     }
@@ -101,7 +101,7 @@ class WatchPartyManager(
                 }
                 Log.d(TAG, "WS onOpen — sending join: $joinPayload")
                 webSocket.send(joinPayload.toString())
-                post { onStatusChange("Connecting…") }
+                post { onStatusChange("finding you… 💫") }
             }
             override fun onMessage(webSocket: WebSocket, text: String) {
                 Log.d(TAG, "WS onMessage raw (len=${text.length}): ${text.take(240)}")
@@ -110,11 +110,11 @@ class WatchPartyManager(
             }
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
                 Log.w(TAG, "WS onFailure: ${t.message}", t)
-                if (intentionalClose || gen != connectionGen) { post { ws = null; role = null; onStatusChange("Disconnected") } } else { post { ws = null; role = null; scheduleReconnect(gen) } }
+                if (intentionalClose || gen != connectionGen) { post { ws = null; role = null; onStatusChange("see you soon 💤") } } else { post { ws = null; role = null; scheduleReconnect(gen) } }
             }
             override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
                 Log.d(TAG, "WS onClosed code=$code reason=$reason")
-                if (intentionalClose || gen != connectionGen) { post { ws = null; role = null; onStatusChange("Disconnected") } } else { post { ws = null; role = null; scheduleReconnect(gen) } }
+                if (intentionalClose || gen != connectionGen) { post { ws = null; role = null; onStatusChange("see you soon 💤") } } else { post { ws = null; role = null; scheduleReconnect(gen) } }
             }
         })
     }
@@ -125,7 +125,7 @@ class WatchPartyManager(
         val delay = backoff.delayFor(reconnectAttempt)
         Log.d(TAG, "scheduleReconnect attempt=$reconnectAttempt delay=${delay}ms gen=$gen")
         onReconnecting(reconnectAttempt)
-        onStatusChange("Reconnecting…")
+        onStatusChange("coming back to you…")
         val p = lastParams ?: return
         mainHandler.postDelayed({ if (!intentionalClose && gen == connectionGen) openWithWake(p, gen) }, delay)
     }
@@ -145,7 +145,7 @@ class WatchPartyManager(
                 val name = msg.optString("name")
                 val existed = msg.optBoolean("existed", false)
                 Log.d(TAG, "joined as role=$role name=$name videoUrl=${msg.optString("videoUrl")} existed=$existed")
-                onStatusChange(if (role == "host") "● Host" else "● Guest")
+                onStatusChange(if (role == "host") "💗 our room is live" else "💗 together now")
                 onRoleAssigned(role!!)
                 // Guests always adopt the room's authoritative state. A rejoining host only
                 // adopts it when the room already existed server-side (a real resume) — not
@@ -165,7 +165,7 @@ class WatchPartyManager(
                 role = msg.optString("role")
                 Log.d(TAG, "role change → $role")
                 onRoleAssigned(role!!)
-                onStatusChange(if (role == "host") "● Host" else "● Guest")
+                onStatusChange(if (role == "host") "💗 our room is live" else "💗 together now")
             }
             "state-update" -> {
                 if (role != "guest") {

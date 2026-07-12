@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="#000000">
@@ -41,7 +42,9 @@
         android:layout_gravity="bottom|end"
         android:layout_margin="16dp"
         android:contentDescription="Watch Party"
-        android:src="@android:drawable/ic_menu_share" />
+        android:src="@drawable/ic_heart"
+        app:backgroundTint="?attr/colorPrimary"
+        app:tint="@color/on_accent" />
 
     <!-- FAB: mic — click toggle, hold = push-to-talk (visible only while connected) -->
     <com.google.android.material.floatingactionbutton.FloatingActionButton
@@ -52,7 +55,9 @@
         android:layout_marginEnd="16dp"
         android:layout_marginBottom="160dp"
         android:contentDescription="Voice"
-        android:src="@android:drawable/ic_btn_speak_now"
+        android:src="@drawable/ic_mic"
+        app:backgroundTint="@color/plum_surface_hi"
+        app:tint="@color/cream"
         android:visibility="gone" />
 
     <!-- FAB: opens Chat dialog (visible only while connected) -->
@@ -64,7 +69,9 @@
         android:layout_marginEnd="16dp"
         android:layout_marginBottom="88dp"
         android:contentDescription="Chat"
-        android:src="@android:drawable/sym_action_chat"
+        android:src="@drawable/ic_chat"
+        app:backgroundTint="@color/plum_surface_hi"
+        app:tint="@color/cream"
         android:visibility="gone" />
 
     <!-- Unread chat badge anchored to fabChat -->
@@ -159,9 +166,9 @@
                 android:paddingEnd="12dp"
                 android:paddingTop="8dp"
                 android:paddingBottom="8dp"
-                android:hint="Message…"
-                android:textColorHint="#BBFFFFFF"
-                android:textColor="#FFFFFF"
+                android:hint="say something sweet…"
+                android:textColorHint="#BBFFF3F0"
+                android:textColor="@color/cream"
                 android:textSize="16sp"
                 android:shadowColor="#000000"
                 android:shadowDx="0"

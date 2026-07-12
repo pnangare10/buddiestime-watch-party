@@ -26,8 +26,10 @@ import androidx.core.content.ContextCompat
 import com.buddiestime.watchparty.ServiceSelectorActivity
 import com.buddiestime.watchparty.StreamingService
 import com.buddiestime.watchparty.getStreamingService
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.google.android.material.textfield.TextInputEditText
+import com.google.android.material.textfield.TextInputLayout
 
 private const val TAG = "HWP-MAIN"
 private const val PREFS = "hwp_prefs"
@@ -370,24 +372,33 @@ class MainActivity : AppCompatActivity() {
         val dialogView = layoutInflater.inflate(R.layout.dialog_join_party, null)
         val etServer = dialogView.findViewById<TextInputEditText>(R.id.etServer)
         val etRoom = dialogView.findViewById<TextInputEditText>(R.id.etRoom)
+        val tilServer = dialogView.findViewById<TextInputLayout>(R.id.tilServer)
+        val tvAdvanced = dialogView.findViewById<TextView>(R.id.tvAdvancedToggle)
         etServer.setText(Config.SERVER_URL)
 
-        val dialog = AlertDialog.Builder(this)
-            .setTitle("Watch Party")
+        tvAdvanced.setOnClickListener {
+            val show = tilServer.visibility != View.VISIBLE
+            Log.d(TAG, "advanced toggle → showServer=$show")
+            tilServer.visibility = if (show) View.VISIBLE else View.GONE
+            tvAdvanced.text = if (show) "advanced ▾" else "advanced ▸"
+        }
+
+        val dialog = MaterialAlertDialogBuilder(this)
+            .setTitle("Watch together 💗")
             .setView(dialogView)
             .setPositiveButton("Join") { _, _ ->
-                val server = etServer.text?.toString()?.trim().orEmpty()
+                val server = etServer.text?.toString()?.trim().takeUnless { it.isNullOrEmpty() } ?: Config.SERVER_URL
                 val room = etRoom.text?.toString()?.trim().orEmpty()
                 Log.d(TAG, "Join click server=$server room=$room")
-                if (server.isNotEmpty() && room.isNotEmpty()) connectToParty(server, room)
-                else Toast.makeText(this, "Enter a room ID to join", Toast.LENGTH_SHORT).show()
+                if (room.isNotEmpty()) connectToParty(server, room)
+                else Toast.makeText(this, "Type the room code first 💌", Toast.LENGTH_SHORT).show()
             }
-            .setNeutralButton("Create") { _, _ ->
+            .setNeutralButton("Create new") { _, _ ->
                 val server = etServer.text?.toString()?.trim().takeUnless { it.isNullOrEmpty() } ?: Config.SERVER_URL
                 val room = generateRoomId()
                 Log.d(TAG, "Create click server=$server generatedRoom=$room")
                 connectToParty(server, room)
-                Toast.makeText(this, "Room created: $room", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, "Our room is ready: $room 💌", Toast.LENGTH_LONG).show()
             }
             .setNegativeButton("Cancel", null)
             .create()
@@ -406,9 +417,9 @@ class MainActivity : AppCompatActivity() {
 
     private fun showLeaveDialog() {
         val roleLabel = manager?.role?.replaceFirstChar { it.uppercase() } ?: "Unknown"
-        AlertDialog.Builder(this)
-            .setTitle("Watch Party Active")
-            .setMessage("You are connected as $roleLabel. Leave the party?")
+        MaterialAlertDialogBuilder(this)
+            .setTitle("Leaving already? 🥺")
+            .setMessage("You're connected as $roleLabel. End the movie night?")
             .setPositiveButton("Leave") { _, _ -> leaveParty() }
             .setNegativeButton("Stay", null)
             .show()
@@ -431,7 +442,7 @@ class MainActivity : AppCompatActivity() {
             onRoleAssigned = { role ->
                 Log.d(TAG, "onRoleAssigned role=$role")
                 webView.evaluateJavascript("HWP_setRole('$role')", null)
-                tvStatus.text = if (role == "host") "● Host" else "● Guest"
+                tvStatus.text = statusForRole(role)
                 tvStatus.visibility = View.VISIBLE
                 fabChat.visibility = View.VISIBLE
                 chatOverlay.show()
@@ -479,14 +490,14 @@ class MainActivity : AppCompatActivity() {
             },
             onReconnecting = { attempt ->
                 Log.d(TAG, "onReconnecting attempt=$attempt")
-                tvStatus.text = "Reconnecting… (#$attempt)"
+                tvStatus.text = "coming back to you… (#$attempt)"
                 tvStatus.visibility = View.VISIBLE
             },
         )
 
         val platform = currentService?.name ?: "android"
         manager?.connect(serverUrl, room, platform, effectiveVideoUrl, name)
-        tvStatus.text = "Connecting…"
+        tvStatus.text = "finding you… 💫"
         tvStatus.visibility = View.VISIBLE
 
         recentRooms.add(RecentRoom(
@@ -640,12 +651,16 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun statusForRole(role: String?): String =
+        if (role == "host") "💗 our room is live" else "💗 together now"
+
     private fun updateMicAppearance() {
         val tint = when {
-            voiceStatus != VoiceManager.VoiceStatus.CONNECTED -> Color.parseColor("#555555")
-            micWasHold      -> Color.parseColor("#d62828")
-            micLatched      -> Color.parseColor("#c2185b")
-            else            -> Color.parseColor("#2a2a40")
+            voiceStatus != VoiceManager.VoiceStatus.CONNECTED ->
+                ContextCompat.getColor(this, R.color.plum_surface_hi)
+            micWasHold -> ContextCompat.getColor(this, R.color.error_rose)
+            micLatched -> ContextCompat.getColor(this, R.color.mint_ok)
+            else -> ContextCompat.getColor(this, R.color.plum_surface_hi)
         }
         fabMic.backgroundTintList = android.content.res.ColorStateList.valueOf(tint)
         Log.d(TAG, "updateMicAppearance: status=$voiceStatus latched=$micLatched hold=$micWasHold")
