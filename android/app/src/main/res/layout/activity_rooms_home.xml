@@ -1,41 +1,92 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent" android:layout_height="match_parent">
 
 <LinearLayout
     android:layout_width="match_parent" android:layout_height="match_parent"
-    android:orientation="vertical" android:background="@color/berry_night" android:padding="24dp">
+    android:orientation="vertical" android:background="@color/berry_night"
+    android:paddingStart="24dp" android:paddingEnd="24dp"
+    android:paddingTop="28dp" android:paddingBottom="16dp">
 
-    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-        android:text="Watch Party" android:textColor="#FFFFFF" android:textSize="26sp"
-        android:textStyle="bold" android:layout_marginBottom="20dp" />
+    <!-- Greeting -->
+    <TextView android:id="@+id/tvGreeting"
+        android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:fontFamily="@font/fredoka" android:textStyle="bold"
+        android:textColor="@color/cream" android:textSize="30sp" />
 
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/btnCreate" android:layout_width="match_parent"
-        android:layout_height="wrap_content" android:text="Create Party"
-        android:textSize="16sp" android:paddingVertical="14dp" android:layout_marginBottom="20dp" />
+    <TextView android:id="@+id/tvGreetingSub"
+        android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:layout_marginTop="4dp" android:layout_marginBottom="24dp"
+        android:fontFamily="@font/nunito"
+        android:textColor="@color/lavender_mist" android:textSize="15sp" />
 
-    <com.google.android.material.textfield.TextInputLayout
+    <!-- Hero: start a movie night -->
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/btnCreate"
         android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:hint="Enter or search a room code" android:layout_marginBottom="8dp">
-        <com.google.android.material.textfield.TextInputEditText
-            android:id="@+id/etSearch" android:layout_width="match_parent"
-            android:layout_height="wrap_content" android:imeOptions="actionGo"
-            android:inputType="text" android:maxLines="1" />
-    </com.google.android.material.textfield.TextInputLayout>
+        android:clickable="true" android:focusable="true"
+        app:cardBackgroundColor="?attr/colorPrimary"
+        app:cardCornerRadius="28dp"
+        app:cardElevation="6dp"
+        app:rippleColor="@color/accent_blush_deep">
 
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/btnJoin" style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+        <LinearLayout
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:gravity="center" android:orientation="vertical"
+            android:paddingTop="22dp" android:paddingBottom="22dp">
+
+            <TextView
+                android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:fontFamily="@font/fredoka" android:textStyle="bold"
+                android:text="🍿  Start our movie night"
+                android:textColor="@color/on_accent" android:textSize="20sp" />
+
+            <TextView
+                android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:layout_marginTop="2dp" android:alpha="0.75"
+                android:fontFamily="@font/nunito"
+                android:text="our own little cinema"
+                android:textColor="@color/on_accent" android:textSize="13sp" />
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+
+    <!-- Join with a code -->
+    <LinearLayout
         android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:text="Join room" android:layout_marginBottom="20dp" />
+        android:layout_marginTop="20dp" android:gravity="center_vertical"
+        android:orientation="horizontal">
 
-    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-        android:text="Recent rooms" android:textColor="#A0A0C0" android:textSize="14sp"
-        android:layout_marginBottom="8dp" />
+        <com.google.android.material.textfield.TextInputLayout
+            android:layout_width="0dp" android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:hint="Have a code from me?">
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/etSearch" android:layout_width="match_parent"
+                android:layout_height="wrap_content" android:imeOptions="actionGo"
+                android:inputType="text" android:maxLines="1" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnJoin"
+            android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:layout_marginStart="10dp"
+            android:paddingStart="24dp" android:paddingEnd="24dp"
+            android:text="Join" />
+    </LinearLayout>
+
+    <!-- Watch history -->
+    <TextView
+        android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:layout_marginTop="26dp" android:layout_marginBottom="10dp"
+        android:fontFamily="@font/fredoka"
+        android:text="Our watch history 🎞️"
+        android:textColor="@color/lavender_mist" android:textSize="16sp" />
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/rvRecent" android:layout_width="match_parent"
-        android:layout_height="0dp" android:layout_weight="1" />
+        android:layout_height="0dp" android:layout_weight="1"
+        android:clipToPadding="false" android:paddingBottom="12dp" />
 
     <TextView android:id="@+id/tvEmpty" android:layout_width="match_parent"
         android:layout_height="wrap_content" android:text="No movie nights yet — let\'s fix that 🍿"

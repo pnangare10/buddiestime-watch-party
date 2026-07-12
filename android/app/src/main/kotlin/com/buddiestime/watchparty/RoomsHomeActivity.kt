@@ -53,7 +53,11 @@ class RoomsHomeActivity : AppCompatActivity() {
         rv.layoutManager = LinearLayoutManager(this)
         rv.adapter = adapter
 
-        findViewById<MaterialButton>(R.id.btnCreate).setOnClickListener {
+        findViewById<TextView>(R.id.tvGreeting).text = "Hey ${Personalization.HER_NAME} 💗"
+        findViewById<TextView>(R.id.tvGreetingSub).text = greetingSubline()
+
+        findViewById<View>(R.id.btnCreate).setOnClickListener {
+            Log.d(TAG, "hero card tapped → ServiceSelector")
             startActivity(Intent(this, ServiceSelectorActivity::class.java))
         }
         val etSearch = findViewById<TextInputEditText>(R.id.etSearch)
@@ -66,6 +70,18 @@ class RoomsHomeActivity : AppCompatActivity() {
             override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
             override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
         })
+    }
+
+    private fun greetingSubline(): String {
+        val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
+        val line = when (hour) {
+            in 5..11 -> "a whole day of us ahead ☀️"
+            in 12..16 -> "sneaky afternoon episode? 👀"
+            in 17..21 -> "perfect time for our movie night ✨"
+            else -> "one more episode won't hurt 🌙"
+        }
+        Log.d(TAG, "greetingSubline: hour=$hour → \"$line\"")
+        return line
     }
 
     // ── Love-note splash (cold start only) ──────────────────────────────────
@@ -168,6 +184,7 @@ class RoomsHomeActivity : AppCompatActivity() {
         class VH(v: View) : RecyclerView.ViewHolder(v) {
             val dot: View = v.findViewById(R.id.dotActive)
             val id: TextView = v.findViewById(R.id.tvRoomId)
+            val chip: TextView = v.findViewById(R.id.tvServiceChip)
             val sub: TextView = v.findViewById(R.id.tvRoomSub)
             val count: TextView = v.findViewById(R.id.tvRoomCount)
         }
@@ -177,12 +194,43 @@ class RoomsHomeActivity : AppCompatActivity() {
         override fun onBindViewHolder(h: VH, position: Int) {
             val r = items[position]
             val st = statuses[r.roomId]
+            val ctx = h.itemView.context
             h.id.text = r.roomId
-            h.sub.text = r.platform.replaceFirstChar { it.uppercase() }
+
+            val brand = androidx.core.content.ContextCompat.getColor(ctx, brandColorRes(r.platform))
+            h.chip.text = prettyPlatform(r.platform)
+            h.chip.setTextColor(brand)
+            // 15%-alpha brand wash behind full-brand text (mutate: drawable state is shared across rows)
+            h.chip.background.mutate().setTint(Color.argb(0x26, Color.red(brand), Color.green(brand), Color.blue(brand)))
+
+            h.sub.text = android.text.format.DateUtils.getRelativeTimeSpanString(
+                r.lastJoined, System.currentTimeMillis(),
+                android.text.format.DateUtils.MINUTE_IN_MILLIS)
+
             val active = st?.active == true
-            h.dot.setBackgroundColor(if (active) Color.parseColor("#1a9e6e") else Color.parseColor("#555555"))
-            h.count.text = if (active) "${st?.count ?: 0} watching" else "inactive"
+            val mint = androidx.core.content.ContextCompat.getColor(ctx, R.color.mint_ok)
+            val dim = androidx.core.content.ContextCompat.getColor(ctx, R.color.plum_surface_hi)
+            h.dot.background.mutate().setTint(if (active) mint else dim)
+            h.count.text = if (active) "watching now" else "sleeping"
+            h.count.setTextColor(if (active) mint
+                else androidx.core.content.ContextCompat.getColor(ctx, R.color.lavender_mist))
             h.itemView.setOnClickListener { onClick(r) }
+        }
+
+        private fun brandColorRes(platform: String): Int = when (platform.lowercase()) {
+            "hotstar" -> R.color.brand_hotstar
+            "netflix" -> R.color.brand_netflix
+            "primevideo" -> R.color.brand_prime
+            "youtube" -> R.color.brand_youtube
+            else -> R.color.accent_blush
+        }
+
+        private fun prettyPlatform(platform: String): String = when (platform.lowercase()) {
+            "hotstar" -> "Hotstar"
+            "netflix" -> "Netflix"
+            "primevideo" -> "Prime Video"
+            "youtube" -> "YouTube"
+            else -> platform.replaceFirstChar { it.uppercase() }
         }
     }
 }
