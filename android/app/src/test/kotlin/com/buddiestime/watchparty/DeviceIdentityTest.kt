@@ -47,4 +47,15 @@ class DeviceIdentityTest {
         assertTrue(id.hasDevice())
         assertEquals("abc123", id.localDeviceId())
     }
+    @Test fun no_room_initially() {
+        val id = DeviceIdentity(FakePrefs())
+        assertFalse(id.hasRoom())
+        assertEquals(null, id.localRoomId())
+    }
+    @Test fun store_room_then_read() {
+        val id = DeviceIdentity(FakePrefs())
+        id.storeRoomId("room-1")
+        assertTrue(id.hasRoom())
+        assertEquals("room-1", id.localRoomId())
+    }
 }
