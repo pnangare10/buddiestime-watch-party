@@ -105,13 +105,15 @@ class PairingApi(private val baseHttpUrl: String) {
             .put("roomName", roomName)
             .put("ownerProfile", ownerProfile)
             .put("partnerProfileDraft", partnerDraft)
-        post("/api/rooms", body) { json, error -> cb(json?.optString("roomId"), error) }
+        // optString("roomId") would return "" rather than null when absent (e.g. on an
+        // error body like {"ok":false,"reason":"room-name-taken"}) — only extract on success.
+        post("/api/rooms", body) { json, error -> cb(if (error == null) json?.optString("roomId") else null, error) }
     }
 
     fun mintInvite(roomId: String, deviceId: String, pin: String?, cb: (token: String?, error: String?) -> Unit) {
         val body = JSONObject().put("deviceId", deviceId)
         if (pin != null) body.put("pin", pin)
-        post("/api/rooms/$roomId/invite", body) { json, error -> cb(json?.optString("token"), error) }
+        post("/api/rooms/$roomId/invite", body) { json, error -> cb(if (error == null) json?.optString("token") else null, error) }
     }
 
     fun joinRoom(roomId: String, deviceId: String, token: String, pin: String?, cb: (herProfile: Profile?, hisProfile: Profile?, error: String?) -> Unit) {

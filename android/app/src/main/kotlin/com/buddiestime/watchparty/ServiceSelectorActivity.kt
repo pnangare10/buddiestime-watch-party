@@ -1,16 +1,12 @@
 package com.buddiestime.watchparty
 
-import android.app.AlertDialog
 import android.content.Context
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import android.content.Intent
 import android.content.SharedPreferences
 import android.os.Bundle
 import android.util.Log
-import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.google.android.material.card.MaterialCardView
-import com.google.android.material.textfield.TextInputEditText
 
 private const val TAG = "HWP-SEL"
 private const val PREFS = "hwp_prefs"
@@ -32,51 +28,19 @@ class ServiceSelectorActivity : AppCompatActivity() {
         findViewById<MaterialCardView>(R.id.cardYouTube).setOnClickListener { ensureNameThenLaunch("youtube") }
     }
 
+    // Display name now comes from the paired Profile (set up during pairing) — never
+    // asked ad hoc here, since reaching this screen already requires being paired.
     private fun ensureNameThenLaunch(serviceName: String) {
         val existing = prefs.getString(KEY_NAME, "")?.trim().orEmpty()
         Log.d(TAG, "ensureNameThenLaunch(service=$serviceName) existing=\"$existing\"")
-        if (existing.isNotEmpty()) {
-            Log.d(TAG, "  → already have name, launching")
-            launchParty(serviceName)
-            return
-        }
-        promptForName { name ->
-            Log.d(TAG, "promptForName callback: saving \"$name\"")
-            prefs.edit().putString(KEY_NAME, name).apply()
-            launchParty(serviceName)
-        }
-    }
-
-    private fun promptForName(onOk: (String) -> Unit) {
-        Log.d(TAG, "promptForName dialog open")
-        val view = layoutInflater.inflate(R.layout.dialog_name_prompt, null)
-        val et = view.findViewById<TextInputEditText>(R.id.etDisplayName)
-
-        val dialog = MaterialAlertDialogBuilder(this)
-            .setTitle("What should I call you? 💕")
-            .setMessage("This is the name that shows up in our chat.")
-            .setView(view)
-            .setCancelable(false)
-            .setPositiveButton("OK", null) // override below so we can validate
-            .create()
-
-        dialog.setOnShowListener {
-            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-                val name = et.text?.toString()?.trim().orEmpty()
-                Log.d(TAG, "name dialog OK clicked — name=\"$name\"")
-                if (name.isEmpty()) {
-                    Toast.makeText(this, "Name required", Toast.LENGTH_SHORT).show()
-                    return@setOnClickListener
-                }
-                if (name.length > 32) {
-                    Toast.makeText(this, "Max 32 chars", Toast.LENGTH_SHORT).show()
-                    return@setOnClickListener
-                }
-                dialog.dismiss()
-                onOk(name)
+        if (existing.isEmpty()) {
+            val name = ProfileStore(prefs).selfProfile()?.displayName?.trim().orEmpty()
+            if (name.isNotEmpty()) {
+                Log.d(TAG, "  → backfilling displayName from paired profile: \"$name\"")
+                prefs.edit().putString(KEY_NAME, name).apply()
             }
         }
-        dialog.show()
+        launchParty(serviceName)
     }
 
     private fun launchParty(serviceName: String) {
