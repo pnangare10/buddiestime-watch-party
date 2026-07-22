@@ -130,4 +130,26 @@
         <item name="shapeAppearanceOverlay">@style/ShapeAppearance.Fluffles.Medium</item>
     </style>
 
+    <!-- ── Settings screen section text ────────────────────────────────── -->
+    <style name="Fluffles.SettingsSectionLabel">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginTop">24dp</item>
+        <item name="android:layout_marginBottom">8dp</item>
+        <item name="fontFamily">@font/fredoka</item>
+        <item name="android:fontFamily">@font/fredoka</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textColor">@color/lavender_mist</item>
+        <item name="android:textSize">16sp</item>
+    </style>
+
+    <style name="Fluffles.SettingsBody">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="fontFamily">@font/nunito</item>
+        <item name="android:fontFamily">@font/nunito</item>
+        <item name="android:textColor">@color/cream</item>
+        <item name="android:textSize">14sp</item>
+    </style>
+
 </resources>

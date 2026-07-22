@@ -7,6 +7,8 @@ import android.content.Intent
 import android.os.Bundle
 import android.provider.Settings
 import android.util.Log
+import android.view.Menu
+import android.view.MenuItem
 import android.view.View
 import android.view.ViewStub
 import android.view.animation.LinearInterpolator
@@ -62,6 +64,21 @@ class RoomsHomeActivity : AppCompatActivity() {
             startActivity(Intent(this, ServiceSelectorActivity::class.java))
         }
         findViewById<MaterialButton>(R.id.btnInviteNow).setOnClickListener { inviteNow() }
+    }
+
+    override fun onCreateOptionsMenu(menu: Menu?): Boolean {
+        menuInflater.inflate(R.menu.menu_rooms_home, menu)
+        return true
+    }
+
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        return when (item.itemId) {
+            R.id.action_settings -> {
+                startActivity(Intent(this, SettingsActivity::class.java))
+                true
+            }
+            else -> super.onOptionsItemSelected(item)
+        }
     }
 
     private fun greetingSubline(): String {
