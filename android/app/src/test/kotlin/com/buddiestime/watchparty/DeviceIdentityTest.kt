@@ -9,7 +9,7 @@ import org.junit.Test
 // Uses a trivial in-memory SharedPreferences fake rather than a full Robolectric context,
 // consistent with this codebase's existing pattern of testing pure logic against fakes.
 class FakePrefs : SharedPreferences {
-    private val map = mutableMapOf<String, String?>()
+    private val map = mutableMapOf<String?, String?>()
     override fun getString(key: String?, def: String?) = map[key] ?: def
     override fun edit() = object : SharedPreferences.Editor {
         override fun putString(key: String?, value: String?): SharedPreferences.Editor {
