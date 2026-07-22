@@ -6,6 +6,11 @@ const path = require("path");
 const { WebSocketServer } = require("ws");
 const { mintToken, LK_READY } = require("./livekit");
 const { sweepClients } = require("./keepalive");
+const pairingStore =
+  process.env.HWP_STORE === "fake"
+    ? require("./test/store.fake").makeFakeStore()
+    : require("./store");
+const pairing = require("./pairing");
 
 const PORT = process.env.PORT || 8080;
 const MAX_NAME_LEN = 32;
@@ -24,9 +29,155 @@ const STATIC_ROUTES = {
   "/install.html": path.join(__dirname, "..", "bookmarklet", "install.html"),
 };
 
-const httpServer = http.createServer((req, res) => {
+function readJsonBody(req) {
+  return new Promise((resolve, reject) => {
+    let data = "";
+    req.on("data", (c) => (data += c));
+    req.on("end", () => {
+      try {
+        resolve(data ? JSON.parse(data) : {});
+      } catch (e) {
+        reject(e);
+      }
+    });
+    req.on("error", reject);
+  });
+}
+
+// { ok:true, ... } | { ok:false, reason } from pairing.js → an HTTP status + JSON body.
+function sendPairingResult(res, result) {
+  const status = result.ok
+    ? 200
+    : {
+        forbidden: 403,
+        "unknown-room": 404,
+        "unknown-device": 404,
+        "not-a-room-member": 403,
+        "room-name-taken": 409,
+        "already-used": 409,
+        "invalid-token": 409,
+        "pin-required": 409,
+        "pin-mismatch": 409,
+        "device-already-in-room": 409,
+      }[result.reason] || 400;
+  res.writeHead(status, { "Content-Type": "application/json" });
+  res.end(JSON.stringify(result));
+}
+
+const httpServer = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://localhost`);
   console.log(`[HTTP] ${req.method} ${url.pathname}`);
+
+  if (req.method === "POST" && url.pathname === "/api/devices") {
+    const { deviceId } = await pairing.createDevice(pairingStore);
+    console.log(`[HTTP]   → /api/devices → deviceId=${deviceId}`);
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ deviceId }));
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/rooms") {
+    const body = await readJsonBody(req);
+    console.log(`[HTTP]   → POST /api/rooms body=${JSON.stringify(body)}`);
+    const result = await pairing.createRoom(pairingStore, {
+      roomName: body.roomName,
+      ownerDeviceId: body.deviceId,
+      ownerProfile: body.ownerProfile,
+      partnerProfileDraft: body.partnerProfileDraft,
+      anniversaryDate: body.anniversaryDate,
+    });
+    sendPairingResult(res, result);
+    return;
+  }
+
+  {
+    const m = url.pathname.match(/^\/api\/rooms\/([^/]+)\/invite$/);
+    if (req.method === "POST" && m) {
+      const roomId = decodeURIComponent(m[1]);
+      const body = await readJsonBody(req);
+      console.log(`[HTTP]   → POST /api/rooms/${roomId}/invite`);
+      const result = await pairing.mintInvite(pairingStore, { roomId, requestingDeviceId: body.deviceId, pin: body.pin });
+      sendPairingResult(res, result);
+      return;
+    }
+  }
+
+  {
+    const m = url.pathname.match(/^\/api\/rooms\/([^/]+)\/join$/);
+    if (req.method === "POST" && m) {
+      const roomId = decodeURIComponent(m[1]);
+      const body = await readJsonBody(req);
+      console.log(`[HTTP]   → POST /api/rooms/${roomId}/join deviceId=${body.deviceId}`);
+      const result = await pairing.redeemInvite(pairingStore, { roomId, token: body.token, deviceId: body.deviceId, pin: body.pin });
+      sendPairingResult(res, result);
+      return;
+    }
+  }
+
+  {
+    const m = url.pathname.match(/^\/api\/rooms\/([^/]+)\/theme$/);
+    if (req.method === "PATCH" && m) {
+      const roomId = decodeURIComponent(m[1]);
+      const body = await readJsonBody(req);
+      console.log(`[HTTP]   → PATCH /api/rooms/${roomId}/theme mode=${body.mode}`);
+      const result = await pairing.setTheme(pairingStore, { roomId, deviceId: body.deviceId, mode: body.mode, value: body.value });
+      sendPairingResult(res, result);
+      return;
+    }
+  }
+
+  {
+    const m = url.pathname.match(/^\/api\/rooms\/([^/]+)\/messages\/(nudge|welcome)$/);
+    if (req.method === "POST" && m) {
+      const roomId = decodeURIComponent(m[1]);
+      const pool = m[2];
+      const body = await readJsonBody(req);
+      console.log(`[HTTP]   → POST /api/rooms/${roomId}/messages/${pool}`);
+      const result = await pairing.addMessage(pairingStore, { roomId, deviceId: body.deviceId, pool, text: body.text });
+      sendPairingResult(res, result);
+      return;
+    }
+  }
+
+  {
+    const m = url.pathname.match(/^\/api\/rooms\/([^/]+)\/messages\/(nudge|welcome)\/([^/]+)$/);
+    if (req.method === "DELETE" && m) {
+      const roomId = decodeURIComponent(m[1]);
+      const pool = m[2];
+      const id = decodeURIComponent(m[3]);
+      const body = await readJsonBody(req);
+      console.log(`[HTTP]   → DELETE /api/rooms/${roomId}/messages/${pool}/${id}`);
+      const result = await pairing.removeMessage(pairingStore, { roomId, deviceId: body.deviceId, pool, id });
+      sendPairingResult(res, result);
+      return;
+    }
+  }
+
+  {
+    // "status" is the existing legacy /api/rooms/status endpoint (handled further
+    // below) — excluded here so this pairing route doesn't shadow it.
+    const m = url.pathname.match(/^\/api\/rooms\/(?!status$)([^/]+)$/);
+    if (req.method === "GET" && m) {
+      const roomId = decodeURIComponent(m[1]);
+      const deviceId = req.headers["x-device-id"];
+      console.log(`[HTTP]   → GET /api/rooms/${roomId} deviceId=${deviceId}`);
+      const result = await pairing.getRoomView(pairingStore, { roomId, deviceId });
+      sendPairingResult(res, result);
+      return;
+    }
+  }
+
+  {
+    const m = url.pathname.match(/^\/api\/devices\/([^/]+)$/);
+    if (req.method === "PATCH" && m) {
+      const deviceId = decodeURIComponent(m[1]);
+      const body = await readJsonBody(req);
+      console.log(`[HTTP]   → PATCH /api/devices/${deviceId}`);
+      const result = await pairing.updateDeviceProfile(pairingStore, { deviceId, patch: body });
+      sendPairingResult(res, result);
+      return;
+    }
+  }
 
   if (url.pathname === "/health") {
     console.log(`[HTTP]   → /health → 200`);
