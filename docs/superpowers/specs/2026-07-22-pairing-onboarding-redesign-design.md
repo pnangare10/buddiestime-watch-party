@@ -3,6 +3,7 @@
 **Date:** 2026-07-22
 **Status:** Draft — requirements gathering, pre-planning
 **Scope:** Android app + server. No changes intended for the Chrome extension, bookmarklet, or `room.html` web client unless called out.
+**Implementation note (decided):** this is a **full replacement** of the existing hardcoded-couple / multi-room code — no backward-compat shims for `Personalization.kt`'s hardcoded names or the multi-room `RoomsHomeActivity` UI. All work happens on the current branch (`claude/run-application-kl2zdw`), which is **not** `main` — do not merge to `main`.
 
 ## 1. Context — what exists today
 
@@ -16,6 +17,7 @@ The Android app currently supports **arbitrary multi-room** watch parties:
 - `FlirtyLines.kt` shows one hardcoded flirty line on the **splash screen at cold app-launch only** (local, not a push notification, not configurable, no way to add new lines).
 - There is no push notification capability (no FCM, no `POST_NOTIFICATIONS` handling, no background service) — the WebSocket connection only exists while `MainActivity` is open and a party is actively connected. Rooms auto-expire 5 minutes after both people disconnect (per `2026-07-03-persistent-rooms-reliable-connect-design.md`).
 - There is no Settings screen anywhere in the app.
+- The existing `server.js` room model (`rooms`, `roomState` Maps) is entirely **ephemeral** — it exists only to drift-correct video playback during an active watch session, and is discarded 5 minutes after both sides disconnect. It has no concept of a durable identity for a person or a couple.
 
 ## 2. Goals (from this request)
 
@@ -33,99 +35,137 @@ Reshape the app from "generic multi-room tool, one name hardcoded at build time"
 
 - The app is scoped to **exactly one persistent room/pairing** per installed pair — not a browsable list of rooms.
 - Remove (or fully repurpose) the multi-room browsing UI: "Create Party" service picker, free-text room-code join field, and the recents list in `RoomsHomeActivity`.
-- The room identifier is established once, during pairing (§3.2), and is not something either user manually types again.
+- The room identifier is established once, during pairing (§3.2), and is not something either user manually types again — the one exception is the room's vanity **name**, which the *owner* (first device) chooses once at creation time (§3.2); the partner never types anything.
 - **Streaming service selection stays free per session** — decided. The room/pairing is singular, but either person can still pick Hotstar/Netflix/Prime/YouTube each time they start watching, same as today's per-session picker. The room is not pinned to one service at pairing time.
-- Settings exposes the current room/pairing identity and lets the user re-pair or reset it (see §3.2, §6 for what "configurable in settings" should mean exactly).
+- Settings exposes the current room/pairing identity and lets the user re-pair or reset it (see §3.2, §8 for what "configurable in settings" should mean exactly).
 
-### 3.2 Link-based pairing & auto-configuration
+### 3.2 Device identity, room ownership & link-based pairing
 
-Replaces the current flow (hardcoded names at build time + separately typed local display name):
+This is the architectural core of the redesign, replacing the current flow (hardcoded names at build time + separately typed local display name) with a **server-issued device identity + a persistent Room record**, distinct from today's ephemeral video-sync session.
 
-1. **Setup (boyfriend's device, first run):** a setup screen collects the pairing profile. Fields, decided:
-   - **Her display name** (required).
-   - **His display name** — carried in the link so her app knows what to call/sign him as, instead of today's hardcoded `HIS_NAME`.
-   - **Pet name / nickname** (optional) — used in flirty lines / welcome messages / notifications instead of the formal display name where it reads more natural (e.g. `"Hey $petName 💗"`).
-   - **Timezone** — defaults to India (IST), but selectable, so time-of-day flirty lines and notification quiet hours are correct if the two of them aren't colocated.
-   - **Anniversary / "together since" date** (optional) — powers a special theme/message on that date.
-   - **Her birthday** (optional) — same idea, once-a-year surprise notification. (His own birthday is already knowable from his device's own config, no link needed.)
-   - **Preferred starting theme** (optional) — seeds the theme picker instead of starting from date-based auto-rotation.
-   - **Notification quiet hours** (optional) — a "don't nudge me between X–Y" window.
-   - **Streaming service is deliberately NOT part of pairing** — stays a free per-session choice (§3.1).
-2. The app generates a **pairing link** encoding the config needed for the second device to self-configure: the room/pairing ID, her name/nickname, his name, the server to connect to, and whichever of the optional fields above were filled in.
-3. That link is shared out (Android share sheet — WhatsApp, SMS, etc.) by the boyfriend, however he chooses.
-4. **Girlfriend opens the link** on her device. It deep-links into the app (Android App Link / custom scheme). The app installs the config from the link automatically — **no manual entry, no room code typing, no name prompt**.
-5. After this one-time exchange, both devices are permanently paired to the same room/pairing ID and know each other's names.
+**Device identity — no login, ever.**
+1. On first launch (either phone, either role), the app has no stored `deviceId`. It calls the server once to mint one: `POST /api/devices` → server generates a unique, unguessable `deviceId` (e.g. a random UUID/token — **not** a sequential counter, since possession of this ID is the only credential the device has) → the app persists it locally and sends it on every subsequent request. No password, no phone-number verification, no account.
+2. Each device is linked to **at most one room** at a time, tracked both server-side (`Device.roomId`) and client-side as a local guard.
 
-**Requirements for the link mechanism:**
-- **One-time use, decided.** The link is valid for exactly one successful pairing; the server invalidates/expires it the moment it's redeemed. A second open (accidental re-tap, forwarded to someone else, opened on a second device) must fail with a clear "this invite has already been used" state rather than silently re-pairing or overwriting. This also answers the earlier re-pairing/overwrite open question for the *link itself* — re-pairing an already-paired device is now a separate, explicit Settings action (§4), not something a stale link can trigger.
-- Must work whether or not the app is already installed on the receiving device (Play Store fallback vs. deep link) — *scope/priority TBD, see open questions.*
-- Must be safe to send over a plain messaging app (i.e., not itself a long-lived secret/credential — the one-time expiry substantially reduces this risk, but see §5 on privacy for what else to avoid encoding in it).
+**Room creation (boyfriend's device, first run, no room yet).**
+3. If the device isn't linked to a room, the app asks him to name their room — a vanity identifier (e.g. a couple nickname), not something the partner will ever type. `POST /api/rooms { roomName, deviceId }` → server checks `roomName` uniqueness; on success creates the Room with `ownerDeviceId = <his deviceId>`, returns `roomId`.
+4. The app then collects his own profile (name, pet name, timezone, birthday, quiet hours) and a first draft of hers (name, pet name he calls her) — see the setup field list in the previous draft, retained below for reference:
+   - **Her display name** (required) and **pet name/nickname** (optional).
+   - **His display name** (required) and pet name (optional).
+   - **Timezone** — defaults to India (IST), selectable.
+   - **Anniversary / "together since" date** (optional, couple-level).
+   - **Her birthday** (optional). His birthday comes from his own profile, entered once for himself.
+   - **Preferred starting theme** (optional) — seeds `Room.theme` instead of starting from date-based auto-rotation.
+   - **Notification quiet hours** (optional, per-device — each person sets their own).
+   - **Optional pairing PIN** (short numeric code) — if set, redeeming the link additionally requires entering this PIN (typed manually by her, never embedded in the link), as defense if the link itself is intercepted or forwarded to the wrong person.
+5. This is persisted to the Room record server-side (`ownerProfile`, `partnerProfileDraft`) — see §6 for the exact schema.
+
+**Link generation & sharing.**
+6. The app requests a **one-time invite token** scoped to the room: `POST /api/rooms/:roomId/invite` → `{ token }`. The shareable link is a **pointer, not a payload** — e.g. `https://<server>/pair/<roomId>/<token>` — it carries no profile data itself, only a route back to this specific room plus a single-use credential.
+7. Shared via the Android share sheet (WhatsApp, SMS, etc.), however he chooses.
+
+**Redemption (girlfriend's device).**
+8. Opening the link deep-links into the app (already installed). If her device has no `deviceId` yet, it mints one first (step 1, same as any first launch).
+9. The app extracts `roomId` + `token` from the link and calls `POST /api/rooms/:roomId/join { token, deviceId, pin? }`. Server validates: token exists and is unused, room doesn't already have a `partnerDeviceId`, PIN matches if one was set. On success: `Room.partnerDeviceId = herDeviceId`, token is consumed (can never be reused), her `Device.roomId` is set.
+10. The server responds with **her profile draft** (what he entered about her — prefilled into her own editable profile, not read-only) and **his profile** (read-only from her side, since it's his self-authored data). Her app self-configures immediately — no prompts.
+11. Both devices are now paired: the room has exactly 2 device IDs, and each device belongs to exactly one room. A third redemption attempt on a consumed/full room is rejected with a clear error.
+
+**Why a pointer instead of a self-contained payload:** keeps the link short, lets pairing data change server-side without needing a new link, and means the one-time token is the only thing that expires — not the profile data itself.
 
 ### 3.3 "Nudge" push notifications (configurable flirty invite text)
 
-- Either user can trigger a notification on the partner's device inviting them to join a watch party right now (e.g., a button in the app — "Invite her/him to watch").
-- The notification body is **not a fixed string** — it's drawn from a **user-configurable pool of messages** (distinct from, or an evolution of, the existing `FlirtyLines` splash pool), editable in Settings (see §3.5 — this may be the same underlying "messages" feature or a separate pool; needs a decision).
-- Tapping the notification opens the app directly into the (single) room, ready to sync.
-- Requires **push infrastructure that does not exist today**: since the current WebSocket connection only lives while the app is foregrounded in an active party, delivering a notification to a partner who doesn't have the app open requires a push channel (e.g., FCM) plus a server-side way to route "invite partner X" to the correct device token. This is new backend surface, not just an Android change.
-- Android 13+ requires runtime `POST_NOTIFICATIONS` permission — needs a request flow.
+- **Primary trigger, per this request: automatic.** When one partner starts playing a video (the existing host-becomes-active / `state-update` moment), the server fires a push notification to the other device using a message drawn at random from the room's **nudge-message pool** (§3.5 — kept as a pool distinct from welcome messages, per your confirmation).
+- *Assumption, flag if wrong:* a manual "invite now" button (nudge before actually pressing play, e.g. "wanna watch?") is also worth keeping as a secondary trigger. Only the auto-on-play trigger was explicitly described — confirm whether you want the manual button too or not.
+- Tapping the notification opens the app directly into the room, ready to sync.
+- Requires push infrastructure that doesn't exist today: FCM registration per device (`Device.fcmToken`, collected at first launch alongside `POST_NOTIFICATIONS` runtime permission on Android 13+), and a server-side send-to-partner-token step triggered off the video-start event.
+- Respects the device's own quiet-hours window (§3.2) — a nudge due to fire inside quiet hours is either suppressed or deferred (needs a pick in planning).
 
 ### 3.4 Shared daily theme, settable by either person
 
 - Settings gets a theme picker (replacing/extending the current silent date-based auto-rotation in `FlufflesTheme`).
-- When **either** user picks a theme, it applies to **both** devices' app UI — not just their own.
-- This requires a sync mechanism that works independently of whether a watch-party session is currently connected (theme changes should propagate even if the partner isn't actively watching something right now) — see §6 for the architecture question this raises.
-- Decide whether "today's theme" still auto-resets daily to something (e.g., last explicit choice persists until changed, vs. reverting to auto-rotation the next day if nobody chose).
+- Theme lives on the **Room** record server-side (`Room.theme`), not per-device — so it is inherently shared rather than something that needs live-syncing between two independent local states. Either device's Settings screen writing `Room.theme` is instantly the answer for both, the next time either app reads it (see §6 for why this doesn't need the ephemeral WS session to be open).
+- Default behavior (auto date-based rotation) still applies when nobody has made an explicit choice; an explicit choice overrides it. Whether an explicit choice persists forever or lapses back to auto-rotation the next day is still open (§7).
 
-### 3.5 Configurable welcome messages
+### 3.5 Configurable welcome messages (separate pool from nudge messages — confirmed)
 
-- Settings gets an editable list of "welcome messages" — the user can add new ones (and presumably edit/remove), stored per-user.
-- When the partner opens the app (or joins/returns to the room — needs a trigger definition), one of the messages the *other* person authored is shown to them.
-- Relationship to §3.3's notification text pool needs clarifying: is this the same pool reused as notification bodies, a superset, or a fully separate feature (e.g., in-app-only "welcome back" banner vs. push notification body)?
+- Settings gets an editable list of "welcome messages," stored on the **Room** record as `Room.welcomeMessages`, each entry tagged with `authorDeviceId` so the UI can show "written by you" vs. "written by {partner}."
+- This is a **distinct pool** from §3.3's nudge/invite messages (`Room.nudgeMessages`) — confirmed. Both pools live in the same place (room config) for the same reason: they need to be readable/editable by either device independent of an active session.
+- Trigger for display still needs a decision: shown when the partner opens the app? Joins the (single) room? Both? (§7)
 
-## 4. New Settings screen (implied by all four features above)
+## 4. Settings screen (implied by all of the above)
 
 None of this works without a Settings screen, which doesn't exist today. It needs, at minimum:
-- Pairing status / re-pair or reset controls (§3.1, §3.2).
+- Pairing status (room name, who's paired), and a re-pair/reset control (§3.2, §7).
 - Theme picker (§3.4).
 - Welcome-message list editor: add / edit / delete (§3.5).
-- Notification message pool editor, if separate from welcome messages (§3.3).
-- Notification permission status/toggle.
+- Nudge-message pool editor, kept separate from welcome messages (§3.3, §3.5).
+- Notification permission status/toggle, and quiet-hours editor.
+- Own profile editor (name, pet name, timezone, birthday) — since profile data no longer comes from a compiled constant, it needs somewhere to live/edit after initial setup too.
 
 ## 5. Non-functional considerations
 
-- **Privacy/security of the pairing link:** it's shared over ordinary messaging apps; treat it as semi-public. Avoid encoding anything sensitive beyond what's needed to pair (no server secrets, no auth tokens with broad scope).
-- **This is a two-person app by design** — no need for accounts, multi-couple support, or discovery. Keep the pairing model as simple as the single-room requirement implies.
-- **Backward compatibility:** existing installs currently rely on hardcoded `Personalization` names and the multi-room home screen. Decide whether this is a breaking redesign (fine for a personal app with 2 known installs) or needs a migration path.
-- **Notification tone:** "dirty text" messages are intentionally suggestive/flirty by the user's own request — no content moderation concerns since both the author and recipient are the same two consenting users, but the message pool should still be easy to edit/tone down from Settings.
+- **Device ID is a bearer credential.** Whoever holds it can act as that device against the server (no separate login). Send it like a secret (e.g. an `X-Device-Id` header over HTTPS), and don't log it in plaintext anywhere it'd be easy to scrape. This is intentionally lightweight for a 2-person personal app, not enterprise-grade auth.
+- **Device ID durability.** Uninstalling the app (or clearing app data) loses the local `deviceId`, orphaning that side of the Room — the server still shows a `partnerDeviceId` that no longer has a live device behind it. Needs a recovery path in planning (§7).
+- **Privacy/security of the pairing link:** shared over ordinary messaging apps; treat as semi-public. It's now a pointer + one-time token rather than a payload, and the optional PIN adds a second factor if you want it — no server secrets or long-lived credentials are ever embedded in the link itself.
+- **This is a two-person app by design** — no accounts, no multi-couple support, no discovery.
+- **Notification tone:** "dirty text" messages are intentionally suggestive/flirty by request — no moderation concerns since author and recipient are the same two consenting users, but the pool should stay easy to edit from Settings.
 
-## 6. Open questions to resolve before/in planning
+## 6. Proposed server data model
 
-Resolved since the first draft: pairing setup fields (§3.2), streaming service stays free-per-session (§3.1), pairing link is one-time-use (§3.2). Remaining:
+Two server-side entities, both persistent (unlike today's ephemeral `rooms`/`roomState` Maps in `server.js`, which stay as-is for live video-sync during an active watch session — see the note at the end of this section on how the two relate).
 
-1. **Architecture for "always-on" sync (theme + welcome messages + notifications):** today, the WebSocket connection and room state only exist while a watch party is actively connected, and rooms expire 5 minutes after going empty. Theme changes and partner notifications need to reach a device that may not have an active party session at all. Options to weigh in planning:
-   - A persistent/always-reconnecting background WS connection tied to the permanent pairing (not the ephemeral watch-room).
-   - REST-based settings sync (poll or fetch-on-open) + push (FCM) for anything that needs to arrive instantly (the nudge notification).
-   - Treat the "default room" as effectively permanent/non-expiring (remove the grace-expiry for this app's single room) and keep using the existing room-broadcast mechanism for theme/messages too.
-2. **Pairing link delivery mechanics:** Android App Link (https, requires domain + asset-links verification) vs. custom URI scheme (simpler, less robust if app isn't installed yet). Do we need a "not installed yet → Play Store" fallback, or is manual "install the app first, then tap the link" acceptable given it's just two people?
-3. **Re-pairing from Settings:** now that the *link* is strictly one-time, what does an explicit "re-pair" action in Settings do — generate a brand-new one-time link and invalidate the old pairing once the new one is redeemed? Does the other device get notified that a re-pair happened?
-4. **Notification-pool vs. welcome-message-pool:** same list or two independent lists? Who can see/edit whose messages — can each person only add to "their own" pool that's shown to the *other* person, or is it a single shared pool either can edit?
-5. **Theme persistence semantics:** does an explicit choice stick forever until someone changes it again, or does the daily auto-rotation resume the next day absent a new explicit choice?
-6. **Fate of existing personalization:** `Personalization.kt`'s hardcoded names, `FlirtyLines.kt`'s static splash pool, and the multi-room `RoomsHomeActivity` UI — replaced outright, or kept as fallback/defaults when no pairing exists yet?
+```
+Device
+  deviceId        — server-generated, unique, unguessable (bearer credential)
+  roomId          — nullable; the one room this device belongs to
+  role            — "owner" | "partner"
+  profile: { displayName, petName, timezone, birthday? }
+  fcmToken        — nullable; for push notifications
+  quietHours      — { startHour, endHour } | null
+  createdAt
 
-## 7. Out of scope (unless told otherwise)
+Room
+  roomId          — server-generated at creation
+  roomName        — owner-chosen vanity name, unique, cosmetic only (partner never types it)
+  ownerDeviceId
+  partnerDeviceId — nullable until redeemed
+  anniversaryDate — nullable, couple-level (not tied to one device)
+  theme: { mode: "auto" | "manual", value, setByDeviceId, setAt }
+  nudgeMessages:   [ { id, text, authorDeviceId, createdAt } ]   // §3.3 pool
+  welcomeMessages: [ { id, text, authorDeviceId, createdAt } ]   // §3.5 pool, separate
+  pendingInvite:   { token, createdAt } | null    // cleared the moment it's redeemed
+  createdAt, updatedAt
+```
+
+**Where do the message pools and theme live? Recommendation (you asked for this one directly): on the `Room` record, server-side, fetched via plain REST (`GET /api/rooms/:roomId`) whenever the app opens or Settings is viewed** — not inside the ephemeral WebSocket room state. That's what makes them work independent of whether a watch party is currently connected: the persistent `Room` is always queryable; the existing `server.js` WS room is still exactly what it is today (drift-corrected playback sync during an active session), just now keyed off the same durable `roomId` when a session happens to be live. Theme/message changes don't need the WS connection open at all — they're a REST read/write against `Room`, with the nudge notification (§3.3) as the one thing that genuinely needs push delivery because it must reach a closed app.
+
+## 7. Open questions to resolve before/in planning
+
+Resolved since earlier drafts: pairing setup fields, streaming service stays free-per-session, pairing link is one-time-use, nudge/welcome pools are separate, message pools + theme live on the Room record. Remaining:
+
+1. **Device ID recovery after uninstall/reinstall.** If either phone loses its `deviceId` (uninstall, cleared data, factory reset), that side of the Room is orphaned. Does the *other* device get a "re-pair" action in Settings that mints a fresh invite token for the same room (keeping history/messages), or does losing a device mean starting a brand-new Room?
+2. **Room-name collision UX.** If the owner's chosen vanity name is taken, do we just reprompt, or auto-suggest a variant?
+3. **Manual "invite now" button** in addition to the automatic on-video-start trigger — wanted or not?
+4. **Quiet-hours behavior for the auto-nudge.** Suppress the notification entirely if it lands inside quiet hours, or queue/defer it to the end of the window?
+5. **Welcome-message display trigger.** On app open, on entering the room, or both?
+6. **Theme persistence semantics.** Does an explicit pick stick forever until changed again, or does auto-rotation resume the next day absent a new explicit choice?
+7. **Pairing link delivery mechanics.** Android App Link (https, needs domain + asset-links verification) vs. custom URI scheme (simpler, weaker if the app isn't installed yet). Do we need a "not installed → Play Store" fallback, or is "install first, then tap the link" acceptable for two people?
+
+## 8. Out of scope (unless told otherwise)
 
 - Multi-couple / multi-room support (explicitly being removed, not generalized).
 - Chrome extension, bookmarklet, and `room.html` web client changes.
 - Voice chat (LiveKit) changes — unaffected by this redesign.
 - Any web-based (non-Android) pairing flow.
 
-## 8. Success criteria (draft — refine in planning)
+## 9. Success criteria (draft — refine in planning)
 
-- A fresh install on the boyfriend's phone requires no room code entry; he only enters his partner's details and gets a shareable link.
-- Opening that link on the girlfriend's phone fully configures her app (name, pairing/room, no prompts) with zero manual steps beyond tapping the link and having the app installed.
+- A fresh install on the boyfriend's phone requires no room code entry; he names the room once, enters both profiles, and gets a shareable one-time link.
+- Opening that link on the girlfriend's phone (app already installed) fully configures her app — her profile, his profile, the room — with zero manual steps beyond tapping the link (and entering the PIN, if one was set).
 - Opening the same link a second time (or on a different device) fails with a clear "already used" message instead of silently re-pairing or overwriting.
+- A room never has more than 2 linked devices; a device is never linked to more than 1 room.
 - Neither user ever sees a "create room" / "join room by code" / browse-rooms screen again.
 - Either user can still freely pick a streaming service each time they start watching, independent of the pairing.
-- Either user can send a flirty push notification inviting the other to watch, using text pulled from an editable pool, and it's deliverable even if the recipient's app is closed.
-- Either user picking a theme in Settings changes both devices' UI accent.
-- Either user can add a new welcome message from Settings, and the other person sees it (trigger condition TBD) after that.
+- Starting a video automatically nudges the partner via push notification with a random pick from the nudge pool, deliverable even if their app is closed.
+- Either user picking a theme in Settings changes both devices' UI accent, without either device needing an active watch session open.
+- Either user can add a new welcome message from Settings, stored on the shared room config, and it's visible to the other person per whatever trigger we land on in §7.
