@@ -36,8 +36,9 @@ class VoiceManager(
         onStatusChange(VoiceStatus.CONNECTING)
         scope.launch {
             try {
-                val connected = LiveKit.connect(context.applicationContext, url, token, ConnectOptions(), RoomOptions())
+                val connected = LiveKit.create(context.applicationContext, RoomOptions())
                 room = connected
+                connected.connect(url, token, ConnectOptions())
                 Log.d(TAG, "joinVoice connected")
                 onStatusChange(VoiceStatus.CONNECTED)
                 connected.events.collect { event ->
