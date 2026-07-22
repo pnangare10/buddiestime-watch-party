@@ -12,7 +12,10 @@ class FakePrefs : SharedPreferences {
     private val map = mutableMapOf<String, String?>()
     override fun getString(key: String?, def: String?) = map[key] ?: def
     override fun edit() = object : SharedPreferences.Editor {
-        override fun putString(key: String?, value: String?) = apply { map[key] = value }
+        override fun putString(key: String?, value: String?): SharedPreferences.Editor {
+            map[key] = value
+            return this
+        }
         override fun apply() {}
         override fun commit() = true
         // remaining Editor/SharedPreferences methods unused in this test — default no-ops/throws
