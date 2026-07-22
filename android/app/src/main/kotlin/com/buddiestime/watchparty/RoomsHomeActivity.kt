@@ -18,6 +18,7 @@ import com.google.android.material.button.MaterialButton
 private const val TAG = "HWP-HOME"
 private const val PREFS = "hwp_prefs"
 private const val SPLASH_DURATION_MS = 3800L  // love-note auto-dismiss; tap skips early
+private val tempWelcomeLines = listOf("Hey, welcome back 💗", "Missed you 🎬", "Ready for movie night?")
 
 class RoomsHomeActivity : AppCompatActivity() {
     private lateinit var deviceIdentity: DeviceIdentity
@@ -50,7 +51,9 @@ class RoomsHomeActivity : AppCompatActivity() {
             Log.d(TAG, "recreation (savedInstanceState present) → skipping splash")
         }
 
-        findViewById<TextView>(R.id.tvGreeting).text = "Hey ${Personalization.HER_NAME} 💗"
+        val selfProfile = profileStore.selfProfile()
+        findViewById<TextView>(R.id.tvGreeting).text =
+            "Hey ${selfProfile?.petName ?: selfProfile?.displayName ?: "there"} 💗"
         findViewById<TextView>(R.id.tvGreetingSub).text = greetingSubline()
 
         findViewById<View>(R.id.btnStartWatching).setOnClickListener {
@@ -77,9 +80,12 @@ class RoomsHomeActivity : AppCompatActivity() {
         val stub = findViewById<ViewStub>(R.id.stubSplash)
         if (stub == null) { Log.w(TAG, "splash: stub missing — skipping"); return }
         val overlay = stub.inflate()
-        val line = FlirtyLines.pick()
+        // Temporary fixed pool — replaced with Room.welcomeMessages in the next task.
+        val line = tempWelcomeLines.random()
+        val partnerProfile = profileStore.partnerProfile()
         overlay.findViewById<TextView>(R.id.tvFlirtyLine).text = line
-        overlay.findViewById<TextView>(R.id.tvSplashSignature).text = "— ${Personalization.HIS_NAME} 💌"
+        overlay.findViewById<TextView>(R.id.tvSplashSignature).text =
+            "— ${partnerProfile?.petName ?: partnerProfile?.displayName ?: "your partner"} 💌"
 
         // Heart pulse — skipped when the user has animations turned off
         val animScale = Settings.Global.getFloat(contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f)
