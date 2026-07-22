@@ -18,7 +18,8 @@ import com.google.android.material.button.MaterialButton
 private const val TAG = "HWP-HOME"
 private const val PREFS = "hwp_prefs"
 private const val SPLASH_DURATION_MS = 3800L  // love-note auto-dismiss; tap skips early
-private val tempWelcomeLines = listOf("Hey, welcome back 💗", "Missed you 🎬", "Ready for movie night?")
+// Shown only when the welcome-message pool is empty (fresh pairing, nobody's added one yet).
+private val defaultWelcomeLines = listOf("Hey, welcome back 💗", "Missed you 🎬", "Ready for movie night?")
 
 class RoomsHomeActivity : AppCompatActivity() {
     private lateinit var deviceIdentity: DeviceIdentity
@@ -28,13 +29,13 @@ class RoomsHomeActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        FlufflesTheme.apply(this)
-        setContentView(R.layout.activity_rooms_home)
-
         val prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         deviceIdentity = DeviceIdentity(prefs)
         profileStore = ProfileStore(prefs)
         api = PairingApi(Config.baseHttpUrl())
+
+        FlufflesTheme.apply(this, profileStore.cachedTheme())
+        setContentView(R.layout.activity_rooms_home)
 
         Log.d(TAG, "onCreate — hasDevice=${deviceIdentity.hasDevice()} hasRoom=${deviceIdentity.hasRoom()}")
         if (!deviceIdentity.hasDevice() || !deviceIdentity.hasRoom()) {
@@ -75,13 +76,19 @@ class RoomsHomeActivity : AppCompatActivity() {
         return line
     }
 
+    // Picks a line from the partner's cached welcome messages (shown on app-open
+    // only, per the design decision); falls back to a small built-in default set
+    // so a brand-new pairing with an empty pool isn't blank on day one.
+    private fun pickWelcomeLine(): String =
+        profileStore.cachedPartnerWelcomeMessages().takeIf { it.isNotEmpty() }?.random()
+            ?: defaultWelcomeLines.random()
+
     // ── Love-note splash (cold start only) ──────────────────────────────────
     private fun showLoveNoteSplash() {
         val stub = findViewById<ViewStub>(R.id.stubSplash)
         if (stub == null) { Log.w(TAG, "splash: stub missing — skipping"); return }
         val overlay = stub.inflate()
-        // Temporary fixed pool — replaced with Room.welcomeMessages in the next task.
-        val line = tempWelcomeLines.random()
+        val line = pickWelcomeLine()
         val partnerProfile = profileStore.partnerProfile()
         overlay.findViewById<TextView>(R.id.tvFlirtyLine).text = line
         overlay.findViewById<TextView>(R.id.tvSplashSignature).text =
@@ -149,6 +156,11 @@ class RoomsHomeActivity : AppCompatActivity() {
                 } else {
                     "💗 ${room.roomName} — waiting for your partner to join"
                 }
+
+                profileStore.cacheWelcomeMessages(
+                    room.welcomeMessages.filter { it.authorDeviceId != deviceId }.map { it.text }
+                )
+                profileStore.cacheTheme(room.theme)
             }
         }
     }
