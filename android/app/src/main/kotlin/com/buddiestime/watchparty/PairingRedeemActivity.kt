@@ -1,12 +1,17 @@
 package com.buddiestime.watchparty
 
+import android.Manifest
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.view.View
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.textfield.TextInputLayout
@@ -134,8 +139,16 @@ class PairingRedeemActivity : AppCompatActivity() {
     }
 
     private fun goToHome() {
+        requestNotificationPermissionIfNeeded()
         startActivity(Intent(this, RoomsHomeActivity::class.java))
         finish()
+    }
+
+    private fun requestNotificationPermissionIfNeeded() {
+        if (Build.VERSION.SDK_INT < 33) return
+        val granted = ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+        Log.d(TAG, "requestNotificationPermissionIfNeeded: granted=$granted")
+        if (!granted) ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
     }
 
     private fun setBusy(busy: Boolean) {
