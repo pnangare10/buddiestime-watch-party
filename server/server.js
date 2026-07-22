@@ -11,6 +11,7 @@ const pairingStore =
     ? require("./test/store.fake").makeFakeStore()
     : require("./store");
 const pairing = require("./pairing");
+const push = require("./push");
 
 const PORT = process.env.PORT || 8080;
 const MAX_NAME_LEN = 32;
@@ -110,6 +111,19 @@ const httpServer = http.createServer(async (req, res) => {
       console.log(`[HTTP]   → POST /api/rooms/${roomId}/join deviceId=${body.deviceId}`);
       const result = await pairing.redeemInvite(pairingStore, { roomId, token: body.token, deviceId: body.deviceId, pin: body.pin });
       sendPairingResult(res, result);
+      return;
+    }
+  }
+
+  {
+    const m = url.pathname.match(/^\/api\/rooms\/([^/]+)\/nudge$/);
+    if (req.method === "POST" && m) {
+      const roomId = decodeURIComponent(m[1]);
+      const body = await readJsonBody(req);
+      console.log(`[HTTP]   → POST /api/rooms/${roomId}/nudge from=${body.deviceId}`);
+      const result = await pairing.triggerNudge(pairingStore, push.sendNudge, { roomId, triggeringDeviceId: body.deviceId });
+      res.writeHead(result.ok ? 200 : 409, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(result));
       return;
     }
   }
@@ -642,12 +656,20 @@ wss.on("connection", (ws, req) => {
         return;
       }
 
+      const wasPaused = state.paused;
       Object.assign(state, {
         time: msg.time,
         paused: msg.paused,
         videoUrl: msg.videoUrl,
         updatedAt: Date.now(),
       });
+
+      if (wasPaused && msg.paused === false) {
+        pairing
+          .triggerNudge(pairingStore, push.sendNudge, { roomId, triggeringDeviceId: clientId })
+          .then((r) => console.log(`[${roomId}] auto-nudge on video-start → ${JSON.stringify(r)}`))
+          .catch((e) => console.warn(`[${roomId}] auto-nudge error: ${e.message}`));
+      }
 
       const guestCount = [...room.values()].filter(
         (c) => c.role === "guest",

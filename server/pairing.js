@@ -158,7 +158,45 @@ async function updateDeviceProfile(store, { deviceId, patch }) {
   return { ok: true };
 }
 
+function isQuietNow(device, now = new Date()) {
+  const qh = device.quietHours;
+  if (!qh) return false;
+  const hour = now.getHours();
+  const { startHour, endHour } = qh;
+  return startHour <= endHour
+    ? hour >= startHour && hour < endHour
+    : hour >= startHour || hour < endHour; // wraps past midnight
+}
+
+function pickRandomMessage(room, pool) {
+  const list = pool === 'nudge' ? room.nudgeMessages : room.welcomeMessages;
+  if (!list || list.length === 0) return null;
+  return list[Math.floor(Math.random() * list.length)].text;
+}
+
+async function triggerNudge(store, pushSend, { roomId, triggeringDeviceId }) {
+  const room = await store.getRoom(roomId);
+  if (!room) return { ok: false, reason: 'unknown-room' };
+  const recipientId = room.ownerDeviceId === triggeringDeviceId ? room.partnerDeviceId : room.ownerDeviceId;
+  if (!recipientId) return { ok: false, reason: 'no-partner' };
+
+  const recipient = await store.getDevice(recipientId);
+  if (!recipient || !recipient.fcmToken) return { ok: false, reason: 'no-push-token' };
+  if (isQuietNow(recipient)) {
+    console.log(`[NUDGE] roomId=${roomId} suppressed — recipient in quiet hours`);
+    return { ok: false, reason: 'quiet-hours' };
+  }
+
+  const text = pickRandomMessage(room, 'nudge');
+  if (!text) return { ok: false, reason: 'no-messages' };
+
+  const result = await pushSend(recipient.fcmToken, text);
+  console.log(`[NUDGE] roomId=${roomId} to=${recipientId} text="${text}" result=${JSON.stringify(result)}`);
+  return result.ok ? { ok: true } : { ok: false, reason: result.reason || 'push-failed' };
+}
+
 module.exports = {
   createDevice, createRoom, mintInvite, redeemInvite,
   getRoomView, setTheme, addMessage, removeMessage, updateDeviceProfile,
+  isQuietNow, pickRandomMessage, triggerNudge,
 };
