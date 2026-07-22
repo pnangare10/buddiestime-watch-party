@@ -5,13 +5,11 @@ import android.util.Log
 import io.livekit.android.ConnectOptions
 import io.livekit.android.LiveKit
 import io.livekit.android.RoomOptions
-import io.livekit.android.events.RoomEvent
 import io.livekit.android.room.Room
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 
 private const val TAG = "HWP-VOICE"
@@ -19,6 +17,12 @@ private const val TAG = "HWP-VOICE"
 /**
  * Thin wrapper around the LiveKit Android client for the watch-party voice
  * room. One instance per MainActivity session; disposed on leave/destroy.
+ *
+ * Deliberately does not subscribe to Room's event stream (active-speaker
+ * highlighting, remote-disconnect notification) — callers only get status
+ * updates from the actions they take here (join/mic-toggle/dispose), not
+ * from server-driven room events. onSpeakersChange is kept as a parameter
+ * for API compatibility with existing call sites but is never invoked.
  */
 class VoiceManager(
     private val context: Context,
@@ -41,20 +45,6 @@ class VoiceManager(
                 connected.connect(url, token, ConnectOptions())
                 Log.d(TAG, "joinVoice connected")
                 onStatusChange(VoiceStatus.CONNECTED)
-                connected.events.collect { event ->
-                    when (event) {
-                        is RoomEvent.Disconnected -> {
-                            Log.d(TAG, "RoomEvent.Disconnected")
-                            onStatusChange(VoiceStatus.DISCONNECTED)
-                        }
-                        is RoomEvent.ActiveSpeakersChanged -> {
-                            val ids = event.speakers.map { it.identity?.toString() ?: it.sid.toString() }
-                            Log.d(TAG, "RoomEvent.ActiveSpeakersChanged ids=$ids")
-                            onSpeakersChange(ids)
-                        }
-                        else -> {}
-                    }
-                }
             } catch (e: Exception) {
                 Log.w(TAG, "joinVoice failed: ${e.message}", e)
                 onError(e.message ?: "voice connect failed")
@@ -79,6 +69,7 @@ class VoiceManager(
         Log.d(TAG, "dispose()")
         room?.disconnect()
         room = null
+        onStatusChange(VoiceStatus.DISCONNECTED)
         scope.cancel()
     }
 }
