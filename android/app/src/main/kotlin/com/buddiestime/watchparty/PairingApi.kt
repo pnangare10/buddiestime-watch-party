@@ -17,7 +17,7 @@ private val JSON = "application/json".toMediaType()
 
 /**
  * Thin OkHttp/JSON client for the pairing REST surface (server/server.js's
- * /api/devices, /api/rooms/* routes) — one call per server route, same
+ * /api/devices and /api/rooms routes) — one call per server route, same
  * enqueue+Callback shape as RoomsHomeActivity.refreshStatuses().
  */
 class PairingApi(private val baseHttpUrl: String) {
