@@ -53,7 +53,6 @@ class MainActivity : AppCompatActivity() {
     private val RC_MIC = 42
     private lateinit var fullscreenContainer: FrameLayout
     private lateinit var prefs: SharedPreferences
-    private lateinit var recentRooms: RecentRoomsStore
 
     private var fullscreenView: View? = null
     private var fullscreenCallback: WebChromeClient.CustomViewCallback? = null
@@ -211,7 +210,6 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         FlufflesTheme.apply(this)
         prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        recentRooms = RecentRoomsStore(prefs)
 
         val serviceName = intent.getStringExtra("service") ?: "hotstar"
         currentService = getStreamingService(serviceName)
@@ -518,13 +516,6 @@ class MainActivity : AppCompatActivity() {
         manager?.connect(serverUrl, room, platform, effectiveVideoUrl, name)
         tvStatus.text = "finding you… 💫"
         tvStatus.visibility = View.VISIBLE
-
-        recentRooms.add(RecentRoom(
-            roomId = room,
-            platform = currentService?.name ?: "hotstar",
-            videoUrl = effectiveVideoUrl,
-            lastJoined = System.currentTimeMillis()
-        ))
     }
 
     private fun leaveParty() {
