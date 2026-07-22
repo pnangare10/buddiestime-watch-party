@@ -193,6 +193,27 @@ const httpServer = http.createServer(async (req, res) => {
     }
   }
 
+  {
+    const m = url.pathname.match(/^\/pair\/([^/]+)\/([^/]+)$/);
+    if (req.method === "GET" && m) {
+      const roomId = decodeURIComponent(m[1]);
+      console.log(`[HTTP]   → GET /pair/${roomId}/*** → fallback page`);
+      const room = await pairingStore.getRoom(roomId).catch(() => null);
+      fs.readFile(path.join(__dirname, "pair-fallback.html"), "utf8", (err, html) => {
+        if (err) {
+          console.warn(`[HTTP]   → pair-fallback.html read error: ${err.message}`);
+          res.writeHead(404);
+          res.end("Not found");
+          return;
+        }
+        const roomName = room?.roomName ? `"${room.roomName}"` : "a watch party";
+        res.writeHead(200, { "Content-Type": "text/html" });
+        res.end(html.replace("{{ROOM_NAME}}", roomName));
+      });
+      return;
+    }
+  }
+
   if (url.pathname === "/health") {
     console.log(`[HTTP]   → /health → 200`);
     res.writeHead(200, { "Content-Type": "text/plain" });
