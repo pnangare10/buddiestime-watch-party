@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:background="@color/berry_night"
+    android:fillViewport="true">
+
+<LinearLayout
+    android:layout_width="match_parent" android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:paddingStart="24dp" android:paddingEnd="24dp"
+    android:paddingTop="28dp" android:paddingBottom="32dp">
+
+    <TextView
+        android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:fontFamily="@font/fredoka" android:textStyle="bold"
+        android:text="Settings"
+        android:textColor="@color/cream" android:textSize="26sp" />
+
+    <!-- Pairing status -->
+    <TextView style="@style/Fluffles.SettingsSectionLabel" android:text="Pairing" />
+    <TextView android:id="@+id/tvRoomName" style="@style/Fluffles.SettingsBody" />
+    <TextView android:id="@+id/tvPartnerStatus" style="@style/Fluffles.SettingsBody" />
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnRepair"
+        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+        android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="Re-pair (send a new invite)" />
+
+    <!-- Theme -->
+    <TextView style="@style/Fluffles.SettingsSectionLabel" android:text="Theme" />
+    <CheckBox android:id="@+id/cbAutoTheme"
+        android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:textColor="@color/cream"
+        android:text="Auto-rotate daily theme" />
+    <RadioGroup android:id="@+id/rgThemePicker"
+        android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:orientation="horizontal"
+        android:visibility="gone">
+        <RadioButton android:id="@+id/radioBlush" android:text="Blush" android:textColor="@color/cream" />
+        <RadioButton android:id="@+id/radioLavender" android:text="Lavender" android:textColor="@color/cream" android:layout_marginStart="12dp" />
+        <RadioButton android:id="@+id/radioPeach" android:text="Peach" android:textColor="@color/cream" android:layout_marginStart="12dp" />
+    </RadioGroup>
+
+    <!-- Welcome messages -->
+    <TextView style="@style/Fluffles.SettingsSectionLabel" android:text="Welcome messages (shown on app open)" />
+    <LinearLayout android:id="@+id/llWelcomeMessages"
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="vertical" />
+    <LinearLayout
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="horizontal" android:layout_marginTop="8dp">
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/etNewWelcomeMessage"
+            android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+            android:hint="Add a welcome message" android:maxLines="1" />
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnAddWelcomeMessage"
+            android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:layout_marginStart="8dp" android:text="Add" />
+    </LinearLayout>
+
+    <!-- Nudge messages -->
+    <TextView style="@style/Fluffles.SettingsSectionLabel" android:text="Nudge messages (sent as a push invite)" />
+    <LinearLayout android:id="@+id/llNudgeMessages"
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="vertical" />
+    <LinearLayout
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="horizontal" android:layout_marginTop="8dp">
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/etNewNudgeMessage"
+            android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+            android:hint="Add a nudge message" android:maxLines="1" />
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnAddNudgeMessage"
+            android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:layout_marginStart="8dp" android:text="Add" />
+    </LinearLayout>
+
+    <!-- Quiet hours -->
+    <TextView style="@style/Fluffles.SettingsSectionLabel" android:text="Quiet hours (nudges suppressed)" />
+    <LinearLayout
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="horizontal">
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/etQuietStart"
+            android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+            android:hint="Start hour (0-23)" android:inputType="number" android:maxLines="1" />
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/etQuietEnd"
+            android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+            android:layout_marginStart="8dp"
+            android:hint="End hour (0-23)" android:inputType="number" android:maxLines="1" />
+    </LinearLayout>
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnSaveQuietHours"
+        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+        android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:layout_marginTop="8dp" android:text="Save quiet hours" />
+
+    <!-- Own profile -->
+    <TextView style="@style/Fluffles.SettingsSectionLabel" android:text="Your profile" />
+    <com.google.android.material.textfield.TextInputEditText
+        android:id="@+id/etProfileName" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:hint="Your name" android:maxLines="1" />
+    <com.google.android.material.textfield.TextInputEditText
+        android:id="@+id/etProfilePetName" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:layout_marginTop="8dp" android:hint="Your pet name" android:maxLines="1" />
+    <com.google.android.material.textfield.TextInputEditText
+        android:id="@+id/etProfileTimezone" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:layout_marginTop="8dp" android:hint="Timezone (e.g. Asia/Kolkata)" android:maxLines="1" />
+    <com.google.android.material.textfield.TextInputEditText
+        android:id="@+id/etProfileBirthday" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:layout_marginTop="8dp" android:hint="Birthday (YYYY-MM-DD)" android:maxLines="1" />
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnSaveProfile"
+        android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:layout_marginTop="8dp" android:text="Save profile" />
+
+    <!-- Notifications -->
+    <TextView style="@style/Fluffles.SettingsSectionLabel" android:text="Notifications" />
+    <TextView android:id="@+id/tvNotifStatus" style="@style/Fluffles.SettingsBody" />
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnRequestNotif"
+        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+        android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:layout_marginTop="8dp" android:text="Enable notifications" />
+
+</LinearLayout>
+</ScrollView>

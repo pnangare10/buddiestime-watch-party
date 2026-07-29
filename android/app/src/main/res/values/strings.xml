@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Fluffles</string>
+    <!-- Host used for the pairing deep-link intent filter — keep in sync with Config.SERVER_URL's host. -->
+    <string name="pairing_host">buddy.taildf8a58.ts.net</string>
 </resources>

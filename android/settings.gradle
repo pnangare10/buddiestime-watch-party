@@ -10,6 +10,9 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        // io.livekit:livekit-android depends on com.github.davidliu:audioswitch,
+        // published only on JitPack (not Maven Central or Google's repo).
+        maven { url 'https://jitpack.io' }
     }
 }
 

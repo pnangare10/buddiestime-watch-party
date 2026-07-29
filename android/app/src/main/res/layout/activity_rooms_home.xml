@@ -21,9 +21,16 @@
         android:fontFamily="@font/nunito"
         android:textColor="@color/lavender_mist" android:textSize="15sp" />
 
+    <!-- Pairing status -->
+    <TextView android:id="@+id/tvPairingStatus"
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:layout_marginBottom="20dp"
+        android:fontFamily="@font/nunito"
+        android:textColor="@color/lavender_mist" android:textSize="14sp" />
+
     <!-- Hero: start a movie night -->
     <com.google.android.material.card.MaterialCardView
-        android:id="@+id/btnCreate"
+        android:id="@+id/btnStartWatching"
         android:layout_width="match_parent" android:layout_height="wrap_content"
         android:clickable="true" android:focusable="true"
         app:cardBackgroundColor="?attr/colorPrimary"
@@ -51,47 +58,14 @@
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
 
-    <!-- Join with a code -->
-    <LinearLayout
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnInviteNow"
+        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
         android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:layout_marginTop="20dp" android:gravity="center_vertical"
-        android:orientation="horizontal">
+        android:layout_marginTop="16dp"
+        android:text="💌 Invite them now" />
 
-        <com.google.android.material.textfield.TextInputLayout
-            android:layout_width="0dp" android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:hint="Have a code from me?">
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/etSearch" android:layout_width="match_parent"
-                android:layout_height="wrap_content" android:imeOptions="actionGo"
-                android:inputType="text" android:maxLines="1" />
-        </com.google.android.material.textfield.TextInputLayout>
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnJoin"
-            android:layout_width="wrap_content" android:layout_height="wrap_content"
-            android:layout_marginStart="10dp"
-            android:paddingStart="24dp" android:paddingEnd="24dp"
-            android:text="Join" />
-    </LinearLayout>
-
-    <!-- Watch history -->
-    <TextView
-        android:layout_width="wrap_content" android:layout_height="wrap_content"
-        android:layout_marginTop="26dp" android:layout_marginBottom="10dp"
-        android:fontFamily="@font/fredoka"
-        android:text="Our watch history 🎞️"
-        android:textColor="@color/lavender_mist" android:textSize="16sp" />
-
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/rvRecent" android:layout_width="match_parent"
-        android:layout_height="0dp" android:layout_weight="1"
-        android:clipToPadding="false" android:paddingBottom="12dp" />
-
-    <TextView android:id="@+id/tvEmpty" android:layout_width="match_parent"
-        android:layout_height="wrap_content" android:text="No movie nights yet — let\'s fix that 🍿"
-        android:textColor="@color/lavender_mist" android:gravity="center" android:padding="24dp"
-        android:visibility="gone" />
+    <View android:layout_width="0dp" android:layout_height="0dp" android:layout_weight="1" />
 </LinearLayout>
 
 <!-- Love-note splash: inflated on cold start only, sits over everything -->

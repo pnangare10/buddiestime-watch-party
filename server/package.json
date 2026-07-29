@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "dotenv": "^16.4.5",
+    "firebase-admin": "^14.2.0",
     "livekit-server-sdk": "^2.9.4",
     "ws": "^8.18.0"
   },

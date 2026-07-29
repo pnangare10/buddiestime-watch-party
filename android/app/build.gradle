@@ -3,6 +3,15 @@ plugins {
     id 'org.jetbrains.kotlin.android'
 }
 
+// Applied conditionally (not in the plugins block above) so this module still
+// builds via ./gradlew before a real Firebase project + google-services.json
+// exist (see D2 in the pairing/onboarding plan) — the plugin fails the build
+// loudly if the file is missing, and FCM is meant to degrade gracefully like
+// every other optionally-configured integration in this app.
+if (file('google-services.json').exists()) {
+    apply plugin: 'com.google.gms.google-services'
+}
+
 android {
     namespace 'com.buddiestime.watchparty'
     compileSdk 34
@@ -66,6 +75,12 @@ dependencies {
     // LiveKit — voice SFU client
     implementation 'io.livekit:livekit-android:2.24.1'
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3'
+
+    // Firebase Cloud Messaging — push nudges. Requires app/google-services.json
+    // from a real Firebase project (see D2 in the pairing/onboarding plan); the
+    // google-services plugin fails the build loudly if that file is missing.
+    implementation platform('com.google.firebase:firebase-bom:33.5.1')
+    implementation 'com.google.firebase:firebase-messaging'
 
     testImplementation 'junit:junit:4.13.2'
     // Real org.json impl on the unit-test classpath — the framework org.json in android.jar
