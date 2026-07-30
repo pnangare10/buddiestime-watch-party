@@ -105,10 +105,10 @@
     <TextView style="@style/Fluffles.SettingsSectionLabel" android:text="Your profile" />
     <com.google.android.material.textfield.TextInputEditText
         android:id="@+id/etProfileName" android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:hint="Your name" android:maxLines="1" />
+        android:hint="Your name" android:inputType="textPersonName|textCapWords" android:maxLines="1" />
     <com.google.android.material.textfield.TextInputEditText
         android:id="@+id/etProfilePetName" android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:layout_marginTop="8dp" android:hint="Your pet name" android:maxLines="1" />
+        android:layout_marginTop="8dp" android:hint="Your pet name" android:inputType="textPersonName|textCapWords" android:maxLines="1" />
     <com.google.android.material.textfield.TextInputEditText
         android:id="@+id/etProfileTimezone" android:layout_width="match_parent" android:layout_height="wrap_content"
         android:layout_marginTop="8dp" android:hint="Timezone (e.g. Asia/Kolkata)" android:maxLines="1" />

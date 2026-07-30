@@ -121,7 +121,7 @@
             android:id="@+id/svOverlay"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:maxHeight="180dp"
+            android:maxHeight="205dp"
             android:visibility="gone">
 
             <LinearLayout
@@ -163,7 +163,7 @@
                 android:layout_width="0dp"
                 android:layout_weight="1"
                 android:layout_height="wrap_content"
-                android:background="@drawable/bg_chat_bubble"
+                android:background="@drawable/bg_chat_input"
                 android:paddingStart="12dp"
                 android:paddingEnd="12dp"
                 android:paddingTop="8dp"
