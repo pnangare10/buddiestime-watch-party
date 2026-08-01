@@ -43,10 +43,12 @@ object FlufflesTheme {
     }
 
     /** Must run before setContentView in every Activity. */
-    fun apply(activity: Activity): Accent {
-        val accent = todaysAccent()
+    fun apply(activity: Activity, roomTheme: ThemeState? = null): Accent {
+        val accent = if (roomTheme?.mode == "manual" && roomTheme.value != null) {
+            accents.firstOrNull { it.label == roomTheme.value } ?: todaysAccent()
+        } else todaysAccent()
         activity.theme.applyStyle(accent.overlay, true)
-        Log.d(TAG, "apply: ${activity.javaClass.simpleName} ← accent=${accent.label}")
+        Log.d(TAG, "apply: ${activity.javaClass.simpleName} ← accent=${accent.label} (mode=${roomTheme?.mode ?: "auto/no-room"})")
         return accent
     }
 }

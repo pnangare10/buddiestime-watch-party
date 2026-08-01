@@ -4,73 +4,81 @@ import android.animation.ObjectAnimator
 import android.animation.PropertyValuesHolder
 import android.content.Context
 import android.content.Intent
-import android.graphics.Color
 import android.os.Bundle
 import android.provider.Settings
 import android.util.Log
-import android.view.LayoutInflater
+import android.view.Menu
+import android.view.MenuItem
 import android.view.View
-import android.view.ViewGroup
 import android.view.ViewStub
 import android.view.animation.LinearInterpolator
-import android.view.inputmethod.EditorInfo
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.button.MaterialButton
-import com.google.android.material.textfield.TextInputEditText
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import java.util.concurrent.TimeUnit
 
 private const val TAG = "HWP-HOME"
 private const val PREFS = "hwp_prefs"
 private const val SPLASH_DURATION_MS = 3800L  // love-note auto-dismiss; tap skips early
+// Shown only when the welcome-message pool is empty (fresh pairing, nobody's added one yet).
+private val defaultWelcomeLines = listOf("Hey, welcome back 💗", "Missed you 🎬", "Ready for movie night?")
 
 class RoomsHomeActivity : AppCompatActivity() {
-    private lateinit var store: RecentRoomsStore
-    private lateinit var adapter: RecentAdapter
-    private lateinit var tvEmpty: TextView
-    private val http = OkHttpClient.Builder().connectTimeout(10, TimeUnit.SECONDS).build()
-    private var all: List<RecentRoom> = emptyList()
+    private lateinit var deviceIdentity: DeviceIdentity
+    private lateinit var profileStore: ProfileStore
+    private lateinit var api: PairingApi
+    private var currentRoom: RoomView? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        FlufflesTheme.apply(this)
+        val prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        deviceIdentity = DeviceIdentity(prefs)
+        profileStore = ProfileStore(prefs)
+        api = PairingApi(Config.baseHttpUrl())
+
+        FlufflesTheme.apply(this, profileStore.cachedTheme())
         setContentView(R.layout.activity_rooms_home)
+
+        Log.d(TAG, "onCreate — hasDevice=${deviceIdentity.hasDevice()} hasRoom=${deviceIdentity.hasRoom()}")
+        if (!deviceIdentity.hasDevice() || !deviceIdentity.hasRoom()) {
+            Log.d(TAG, "onCreate: not fully paired yet → WelcomeSetupActivity")
+            startActivity(Intent(this, WelcomeSetupActivity::class.java))
+            finish()
+            return
+        }
+
         if (savedInstanceState == null) {
             Log.d(TAG, "cold start → showing love-note splash")
             showLoveNoteSplash()
         } else {
             Log.d(TAG, "recreation (savedInstanceState present) → skipping splash")
         }
-        store = RecentRoomsStore(getSharedPreferences(PREFS, Context.MODE_PRIVATE))
-        tvEmpty = findViewById(R.id.tvEmpty)
 
-        val rv = findViewById<RecyclerView>(R.id.rvRecent)
-        adapter = RecentAdapter { room -> joinRoom(room.roomId, room.platform, room.videoUrl) }
-        rv.layoutManager = LinearLayoutManager(this)
-        rv.adapter = adapter
-
-        findViewById<TextView>(R.id.tvGreeting).text = "Hey ${Personalization.HER_NAME} 💗"
+        val selfProfile = profileStore.selfProfile()
+        findViewById<TextView>(R.id.tvGreeting).text =
+            "Hey ${selfProfile?.petName ?: selfProfile?.displayName ?: "there"} 💗"
         findViewById<TextView>(R.id.tvGreetingSub).text = greetingSubline()
 
-        findViewById<View>(R.id.btnCreate).setOnClickListener {
+        findViewById<View>(R.id.btnStartWatching).setOnClickListener {
             Log.d(TAG, "hero card tapped → ServiceSelector")
             startActivity(Intent(this, ServiceSelectorActivity::class.java))
         }
-        val etSearch = findViewById<TextInputEditText>(R.id.etSearch)
-        findViewById<MaterialButton>(R.id.btnJoin).setOnClickListener { doJoinFromField(etSearch.text?.toString()) }
-        etSearch.setOnEditorActionListener { _, id, _ ->
-            if (id == EditorInfo.IME_ACTION_GO) { doJoinFromField(etSearch.text?.toString()); true } else false
+        findViewById<MaterialButton>(R.id.btnInviteNow).setOnClickListener { inviteNow() }
+    }
+
+    override fun onCreateOptionsMenu(menu: Menu?): Boolean {
+        menuInflater.inflate(R.menu.menu_rooms_home, menu)
+        return true
+    }
+
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        return when (item.itemId) {
+            R.id.action_settings -> {
+                startActivity(Intent(this, SettingsActivity::class.java))
+                true
+            }
+            else -> super.onOptionsItemSelected(item)
         }
-        etSearch.addTextChangedListener(object : android.text.TextWatcher {
-            override fun afterTextChanged(s: android.text.Editable?) { filter(s?.toString().orEmpty()) }
-            override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
-            override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
-        })
     }
 
     private fun greetingSubline(): String {
@@ -85,14 +93,23 @@ class RoomsHomeActivity : AppCompatActivity() {
         return line
     }
 
+    // Picks a line from the partner's cached welcome messages (shown on app-open
+    // only, per the design decision); falls back to a small built-in default set
+    // so a brand-new pairing with an empty pool isn't blank on day one.
+    private fun pickWelcomeLine(): String =
+        profileStore.cachedPartnerWelcomeMessages().takeIf { it.isNotEmpty() }?.random()
+            ?: defaultWelcomeLines.random()
+
     // ── Love-note splash (cold start only) ──────────────────────────────────
     private fun showLoveNoteSplash() {
         val stub = findViewById<ViewStub>(R.id.stubSplash)
         if (stub == null) { Log.w(TAG, "splash: stub missing — skipping"); return }
         val overlay = stub.inflate()
-        val line = FlirtyLines.pick()
+        val line = pickWelcomeLine()
+        val partnerProfile = profileStore.partnerProfile()
         overlay.findViewById<TextView>(R.id.tvFlirtyLine).text = line
-        overlay.findViewById<TextView>(R.id.tvSplashSignature).text = "— ${Personalization.HIS_NAME} 💌"
+        overlay.findViewById<TextView>(R.id.tvSplashSignature).text =
+            "— ${partnerProfile?.petName ?: partnerProfile?.displayName ?: "your partner"} 💌"
 
         // Heart pulse — skipped when the user has animations turned off
         val animScale = Settings.Global.getFloat(contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f)
@@ -132,106 +149,52 @@ class RoomsHomeActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        all = store.all()
-        adapter.submit(all)
-        tvEmpty.visibility = if (all.isEmpty()) View.VISIBLE else View.GONE
-        refreshStatuses()
+        if (deviceIdentity.hasDevice() && deviceIdentity.hasRoom()) {
+            refreshPairingStatus()
+        }
     }
 
-    private fun filter(q: String) {
-        val f = if (q.isBlank()) all else all.filter { it.roomId.contains(q.trim(), ignoreCase = true) }
-        adapter.submit(f)
-    }
+    private fun refreshPairingStatus() {
+        val roomId = deviceIdentity.localRoomId() ?: return
+        val deviceId = deviceIdentity.localDeviceId() ?: return
+        Log.d(TAG, "refreshPairingStatus roomId=$roomId")
+        api.getRoom(roomId, deviceId) { room, error ->
+            runOnUiThread {
+                if (room == null) {
+                    Log.w(TAG, "refreshPairingStatus failed: $error")
+                    findViewById<TextView>(R.id.tvPairingStatus).text = "Couldn't reach the server — pull to refresh"
+                    return@runOnUiThread
+                }
+                currentRoom = room
+                val partnerPaired = room.partnerDeviceId != null
+                Log.d(TAG, "refreshPairingStatus room=${room.roomName} partnerPaired=$partnerPaired")
+                findViewById<TextView>(R.id.tvPairingStatus).text = if (partnerPaired) {
+                    "💗 ${room.roomName} — you're both paired up"
+                } else {
+                    "💗 ${room.roomName} — waiting for your partner to join"
+                }
 
-    private fun doJoinFromField(raw: String?) {
-        val code = raw?.trim().orEmpty()
-        if (code.isEmpty()) { Toast.makeText(this, "Enter a room code", Toast.LENGTH_SHORT).show(); return }
-        val known = all.firstOrNull { it.roomId.equals(code, ignoreCase = true) }
-        joinRoom(code, known?.platform ?: "hotstar", known?.videoUrl)
-    }
-
-    private fun joinRoom(roomId: String, platform: String, videoUrl: String? = null) {
-        Log.d(TAG, "joinRoom roomId=$roomId platform=$platform videoUrl=$videoUrl")
-        startActivity(Intent(this, MainActivity::class.java).apply {
-            putExtra("service", platform)
-            putExtra("roomId", roomId)
-            putExtra("join", true)
-            if (!videoUrl.isNullOrBlank()) putExtra("hwp_url", videoUrl)
-        })
-    }
-
-    private fun refreshStatuses() {
-        val ids = all.map { it.roomId }
-        if (ids.isEmpty()) return
-        val url = Config.baseHttpUrl() + "/api/rooms/status?ids=" + ids.joinToString(",")
-        Log.d(TAG, "refreshStatuses url=$url")
-        http.newCall(Request.Builder().url(url).build()).enqueue(object : okhttp3.Callback {
-            override fun onFailure(call: okhttp3.Call, e: java.io.IOException) { Log.w(TAG, "status fetch failed: ${e.message}") }
-            override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
-                val body = response.body?.string() ?: return
-                val statuses = try { parseRoomStatusList(body) } catch (e: Exception) { Log.w(TAG, "parse: ${e.message}"); return }
-                runOnUiThread { adapter.applyStatuses(statuses.associateBy { it.roomId }) }
+                profileStore.cacheWelcomeMessages(
+                    room.welcomeMessages.filter { it.authorDeviceId != deviceId }.map { it.text }
+                )
+                profileStore.cacheTheme(room.theme)
             }
-        })
+        }
     }
 
-    // ── RecyclerView adapter ────────────────────────────────────────────────
-    class RecentAdapter(val onClick: (RecentRoom) -> Unit) : RecyclerView.Adapter<RecentAdapter.VH>() {
-        private var items: List<RecentRoom> = emptyList()
-        private var statuses: Map<String, RoomStatus> = emptyMap()
-        fun submit(list: List<RecentRoom>) { items = list; notifyDataSetChanged() }
-        fun applyStatuses(m: Map<String, RoomStatus>) { statuses = m; notifyDataSetChanged() }
-
-        class VH(v: View) : RecyclerView.ViewHolder(v) {
-            val dot: View = v.findViewById(R.id.dotActive)
-            val id: TextView = v.findViewById(R.id.tvRoomId)
-            val chip: TextView = v.findViewById(R.id.tvServiceChip)
-            val sub: TextView = v.findViewById(R.id.tvRoomSub)
-            val count: TextView = v.findViewById(R.id.tvRoomCount)
-        }
-        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH =
-            VH(LayoutInflater.from(parent.context).inflate(R.layout.item_recent_room, parent, false))
-        override fun getItemCount() = items.size
-        override fun onBindViewHolder(h: VH, position: Int) {
-            val r = items[position]
-            val st = statuses[r.roomId]
-            val ctx = h.itemView.context
-            h.id.text = r.roomId
-
-            val brand = androidx.core.content.ContextCompat.getColor(ctx, brandColorRes(r.platform))
-            h.chip.text = prettyPlatform(r.platform)
-            h.chip.setTextColor(brand)
-            // 15%-alpha brand wash behind full-brand text (mutate: drawable state is shared across rows)
-            h.chip.background.mutate().setTint(Color.argb(0x26, Color.red(brand), Color.green(brand), Color.blue(brand)))
-
-            h.sub.text = android.text.format.DateUtils.getRelativeTimeSpanString(
-                r.lastJoined, System.currentTimeMillis(),
-                android.text.format.DateUtils.MINUTE_IN_MILLIS)
-
-            val active = st?.active == true
-            val mint = androidx.core.content.ContextCompat.getColor(ctx, R.color.mint_ok)
-            val dim = androidx.core.content.ContextCompat.getColor(ctx, R.color.plum_surface_hi)
-            h.dot.background.mutate().setTint(if (active) mint else dim)
-            h.count.text = if (active) "watching now" else "sleeping"
-            h.count.setTextColor(if (active) mint
-                else androidx.core.content.ContextCompat.getColor(ctx, R.color.lavender_mist))
-            h.itemView.setOnClickListener { onClick(r) }
-        }
-
-        private fun brandColorRes(platform: String): Int = when (platform.lowercase()) {
-            "hotstar" -> R.color.brand_hotstar
-            "netflix" -> R.color.brand_netflix
-            "primevideo" -> R.color.brand_prime
-            "youtube" -> R.color.brand_youtube
-            else -> R.color.accent_blush
-        }
-
-        private fun prettyPlatform(platform: String): String = when (platform.lowercase()) {
-            "hotstar" -> "Hotstar"
-            "netflix" -> "Netflix"
-            "primevideo" -> "Prime Video"
-            "youtube" -> "YouTube"
-            else -> platform.replaceFirstChar { it.uppercase() }
+    private fun inviteNow() {
+        val roomId = deviceIdentity.localRoomId() ?: return
+        val deviceId = deviceIdentity.localDeviceId() ?: return
+        Log.d(TAG, "inviteNow roomId=$roomId")
+        api.triggerNudge(roomId, deviceId) { ok ->
+            runOnUiThread {
+                Log.d(TAG, "inviteNow result ok=$ok")
+                Toast.makeText(
+                    this,
+                    if (ok) "Nudge sent 💌" else "Couldn't reach them right now — try again later",
+                    Toast.LENGTH_SHORT,
+                ).show()
+            }
         }
     }
 }

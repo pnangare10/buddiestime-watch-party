@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:background="@color/berry_night"
+    android:fillViewport="true">
+
+<LinearLayout
+    android:layout_width="match_parent" android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:paddingStart="24dp" android:paddingEnd="24dp"
+    android:paddingTop="32dp" android:paddingBottom="32dp">
+
+    <TextView
+        android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:fontFamily="@font/fredoka" android:textStyle="bold"
+        android:text="💗 Let's set up your room"
+        android:textColor="@color/cream" android:textSize="26sp" />
+
+    <TextView
+        android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:layout_marginTop="4dp" android:layout_marginBottom="24dp"
+        android:fontFamily="@font/nunito"
+        android:text="A few details, then we'll send an invite to your partner"
+        android:textColor="@color/lavender_mist" android:textSize="14sp" />
+
+    <!-- Section: your profile -->
+    <TextView
+        android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:fontFamily="@font/fredoka" android:textStyle="bold"
+        android:text="You"
+        android:textColor="@color/lavender_mist" android:textSize="16sp" />
+
+    <com.google.android.material.textfield.TextInputLayout
+        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:hint="Your name">
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/etYourName" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:inputType="textPersonName"
+            android:maxLines="1" />
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <com.google.android.material.textfield.TextInputLayout
+        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:hint="Your pet name (optional)">
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/etYourPetName" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:inputType="textPersonName"
+            android:maxLines="1" />
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <com.google.android.material.textfield.TextInputLayout
+        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:hint="Your birthday (optional, YYYY-MM-DD)">
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/etYourBirthday" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:inputType="date"
+            android:maxLines="1" />
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <!-- Section: partner draft -->
+    <TextView
+        android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:layout_marginTop="24dp"
+        android:fontFamily="@font/fredoka" android:textStyle="bold"
+        android:text="Your partner"
+        android:textColor="@color/lavender_mist" android:textSize="16sp" />
+
+    <com.google.android.material.textfield.TextInputLayout
+        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:hint="Their name">
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/etPartnerName" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:inputType="textPersonName"
+            android:maxLines="1" />
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <com.google.android.material.textfield.TextInputLayout
+        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:hint="Their pet name (optional)">
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/etPartnerPetName" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:inputType="textPersonName"
+            android:maxLines="1" />
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <!-- Section: room -->
+    <TextView
+        android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:layout_marginTop="24dp"
+        android:fontFamily="@font/fredoka" android:textStyle="bold"
+        android:text="Your room"
+        android:textColor="@color/lavender_mist" android:textSize="16sp" />
+
+    <com.google.android.material.textfield.TextInputLayout
+        android:id="@+id/tilRoomName"
+        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:hint="Room name">
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/etRoomName" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:inputType="text"
+            android:maxLines="1" />
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <com.google.android.material.textfield.TextInputLayout
+        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:hint="Pairing PIN (optional)">
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/etPin" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:inputType="numberPassword"
+            android:maxLength="8" android:maxLines="1" />
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnCreateRoom"
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:layout_marginTop="28dp"
+        android:paddingTop="14dp" android:paddingBottom="14dp"
+        android:text="Create room and get invite link" />
+
+    <ProgressBar
+        android:id="@+id/progress"
+        android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:layout_marginTop="16dp"
+        android:visibility="gone" />
+
+</LinearLayout>
+</ScrollView>
