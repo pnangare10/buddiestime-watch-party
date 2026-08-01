@@ -2,7 +2,6 @@ package com.buddiestime.watchparty
 
 import android.Manifest
 import android.content.Context
-import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -88,20 +87,12 @@ class SettingsActivity : AppCompatActivity() {
         val roomId = deviceIdentity.localRoomId() ?: return
         val deviceId = deviceIdentity.localDeviceId() ?: return
         Log.d(TAG, "repair roomId=$roomId")
-        api.mintInvite(roomId, deviceId, null) { token, error ->
+        InviteSharing.mintAndShare(this, api, roomId, deviceId, null) { error ->
             runOnUiThread {
-                if (token == null) {
+                if (error != null) {
                     Log.w(TAG, "repair failed: $error")
                     Toast.makeText(this, "Couldn't create a new invite — try again", Toast.LENGTH_SHORT).show()
-                    return@runOnUiThread
                 }
-                val link = "${Config.baseHttpUrl()}/pair/$roomId/$token"
-                Log.d(TAG, "repair → link=$link")
-                val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                    type = "text/plain"
-                    putExtra(Intent.EXTRA_TEXT, "Join our watch party 💗 $link")
-                }
-                startActivity(Intent.createChooser(shareIntent, "Send the invite"))
             }
         }
     }
