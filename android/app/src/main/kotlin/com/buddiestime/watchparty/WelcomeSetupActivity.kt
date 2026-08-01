@@ -96,7 +96,7 @@ class WelcomeSetupActivity : AppCompatActivity() {
             return
         }
 
-        val yourName = etYourName.text?.toString()?.trim().orEmpty()
+        val yourName = etYourName.text?.toString()?.trim().orEmpty().capitalizeFirst()
         val roomName = etRoomName.text?.toString()?.trim().orEmpty()
         if (yourName.isEmpty()) {
             Toast.makeText(this, "Enter your name first 💕", Toast.LENGTH_SHORT).show()
@@ -110,12 +110,12 @@ class WelcomeSetupActivity : AppCompatActivity() {
 
         val ownerProfile = JSONObject().apply {
             put("displayName", yourName)
-            etYourPetName.text?.toString()?.trim()?.takeIf { it.isNotEmpty() }?.let { put("petName", it) }
+            etYourPetName.text?.toString()?.trim()?.takeIf { it.isNotEmpty() }?.let { put("petName", it.capitalizeFirst()) }
             etYourBirthday.text?.toString()?.trim()?.takeIf { it.isNotEmpty() }?.let { put("birthday", it) }
         }
         val partnerDraft = JSONObject().apply {
-            etPartnerName.text?.toString()?.trim()?.takeIf { it.isNotEmpty() }?.let { put("displayName", it) }
-            etPartnerPetName.text?.toString()?.trim()?.takeIf { it.isNotEmpty() }?.let { put("petName", it) }
+            etPartnerName.text?.toString()?.trim()?.takeIf { it.isNotEmpty() }?.let { put("displayName", it.capitalizeFirst()) }
+            etPartnerPetName.text?.toString()?.trim()?.takeIf { it.isNotEmpty() }?.let { put("petName", it.capitalizeFirst()) }
         }
         val pin = etPin.text?.toString()?.trim()?.takeIf { it.isNotEmpty() }
 

@@ -182,14 +182,14 @@ class SettingsActivity : AppCompatActivity() {
 
     private fun saveProfile() {
         val deviceId = deviceIdentity.localDeviceId() ?: return
-        val name = findViewById<TextInputEditText>(R.id.etProfileName).text?.toString()?.trim().orEmpty()
+        val name = findViewById<TextInputEditText>(R.id.etProfileName).text?.toString()?.trim().orEmpty().capitalizeFirst()
         if (name.isEmpty()) {
             Toast.makeText(this, "Name can't be empty", Toast.LENGTH_SHORT).show()
             return
         }
         val profile = JSONObject().apply {
             put("displayName", name)
-            findViewById<TextInputEditText>(R.id.etProfilePetName).text?.toString()?.trim()?.takeIf { it.isNotEmpty() }?.let { put("petName", it) }
+            findViewById<TextInputEditText>(R.id.etProfilePetName).text?.toString()?.trim()?.takeIf { it.isNotEmpty() }?.let { put("petName", it.capitalizeFirst()) }
             findViewById<TextInputEditText>(R.id.etProfileTimezone).text?.toString()?.trim()?.takeIf { it.isNotEmpty() }?.let { put("timezone", it) }
             findViewById<TextInputEditText>(R.id.etProfileBirthday).text?.toString()?.trim()?.takeIf { it.isNotEmpty() }?.let { put("birthday", it) }
         }
