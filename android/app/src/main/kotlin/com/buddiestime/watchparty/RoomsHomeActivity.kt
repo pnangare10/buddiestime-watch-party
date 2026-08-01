@@ -63,7 +63,7 @@ class RoomsHomeActivity : AppCompatActivity() {
             Log.d(TAG, "hero card tapped → ServiceSelector")
             startActivity(Intent(this, ServiceSelectorActivity::class.java))
         }
-        findViewById<MaterialButton>(R.id.btnInviteNow).setOnClickListener { inviteNow() }
+        findViewById<MaterialButton>(R.id.btnInviteNow).setOnClickListener { onInviteButtonTapped() }
     }
 
     override fun onCreateOptionsMenu(menu: Menu?): Boolean {
@@ -173,6 +173,11 @@ class RoomsHomeActivity : AppCompatActivity() {
                 } else {
                     "💗 ${room.roomName} — waiting for your partner to join"
                 }
+                findViewById<MaterialButton>(R.id.btnInviteNow).text = if (partnerPaired) {
+                    "💌 Nudge them"
+                } else {
+                    "📤 Share invite link"
+                }
 
                 profileStore.cacheWelcomeMessages(
                     room.welcomeMessages.filter { it.authorDeviceId != deviceId }.map { it.text }
@@ -182,13 +187,33 @@ class RoomsHomeActivity : AppCompatActivity() {
         }
     }
 
-    private fun inviteNow() {
+    private fun onInviteButtonTapped() {
         val roomId = deviceIdentity.localRoomId() ?: return
         val deviceId = deviceIdentity.localDeviceId() ?: return
-        Log.d(TAG, "inviteNow roomId=$roomId")
+        if (currentRoom?.partnerDeviceId == null) {
+            shareInviteLink(roomId, deviceId)
+        } else {
+            nudgePartner(roomId, deviceId)
+        }
+    }
+
+    private fun shareInviteLink(roomId: String, deviceId: String) {
+        Log.d(TAG, "shareInviteLink roomId=$roomId")
+        InviteSharing.mintAndShare(this, api, roomId, deviceId, null) { error ->
+            runOnUiThread {
+                if (error != null) {
+                    Log.w(TAG, "shareInviteLink failed: $error")
+                    Toast.makeText(this, "Couldn't create a new invite — try again", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    private fun nudgePartner(roomId: String, deviceId: String) {
+        Log.d(TAG, "nudgePartner roomId=$roomId")
         api.triggerNudge(roomId, deviceId) { ok ->
             runOnUiThread {
-                Log.d(TAG, "inviteNow result ok=$ok")
+                Log.d(TAG, "nudgePartner result ok=$ok")
                 Toast.makeText(
                     this,
                     if (ok) "Nudge sent 💌" else "Couldn't reach them right now — try again later",
