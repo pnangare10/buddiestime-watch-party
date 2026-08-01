@@ -19,6 +19,9 @@ const MAX_CHAT_LEN = 500;
 const VOICE_CAP = 4;
 const PING_INTERVAL_MS = Number(process.env.PING_INTERVAL_MS) || 30000;
 const ROOM_GRACE_MS = Number(process.env.ROOM_GRACE_MS) || 300000;
+// A playing room's stored time goes stale the moment we store it. Cap how far we
+// extrapolate it: past this, the host is gone rather than genuinely that far ahead.
+const MAX_PROJECTION_SEC = 30;
 
 const rooms = new Map(); // roomId → Map<ws, { role, id, name, voice: boolean }>
 const clientsById = new Map(); // roomId → Map<clientId, ws>
@@ -97,7 +100,11 @@ const httpServer = http.createServer(async (req, res) => {
       const roomId = decodeURIComponent(m[1]);
       const body = await readJsonBody(req);
       console.log(`[HTTP]   → POST /api/rooms/${roomId}/invite`);
-      const result = await pairing.mintInvite(pairingStore, { roomId, requestingDeviceId: body.deviceId, pin: body.pin });
+      const result = await pairing.mintInvite(pairingStore, {
+        roomId,
+        requestingDeviceId: body.deviceId,
+        pin: body.pin,
+      });
       sendPairingResult(res, result);
       return;
     }
@@ -108,8 +115,15 @@ const httpServer = http.createServer(async (req, res) => {
     if (req.method === "POST" && m) {
       const roomId = decodeURIComponent(m[1]);
       const body = await readJsonBody(req);
-      console.log(`[HTTP]   → POST /api/rooms/${roomId}/join deviceId=${body.deviceId}`);
-      const result = await pairing.redeemInvite(pairingStore, { roomId, token: body.token, deviceId: body.deviceId, pin: body.pin });
+      console.log(
+        `[HTTP]   → POST /api/rooms/${roomId}/join deviceId=${body.deviceId}`,
+      );
+      const result = await pairing.redeemInvite(pairingStore, {
+        roomId,
+        token: body.token,
+        deviceId: body.deviceId,
+        pin: body.pin,
+      });
       sendPairingResult(res, result);
       return;
     }
@@ -120,9 +134,16 @@ const httpServer = http.createServer(async (req, res) => {
     if (req.method === "POST" && m) {
       const roomId = decodeURIComponent(m[1]);
       const body = await readJsonBody(req);
-      console.log(`[HTTP]   → POST /api/rooms/${roomId}/nudge from=${body.deviceId}`);
-      const result = await pairing.triggerNudge(pairingStore, push.sendNudge, { roomId, triggeringDeviceId: body.deviceId });
-      res.writeHead(result.ok ? 200 : 409, { "Content-Type": "application/json" });
+      console.log(
+        `[HTTP]   → POST /api/rooms/${roomId}/nudge from=${body.deviceId}`,
+      );
+      const result = await pairing.triggerNudge(pairingStore, push.sendNudge, {
+        roomId,
+        triggeringDeviceId: body.deviceId,
+      });
+      res.writeHead(result.ok ? 200 : 409, {
+        "Content-Type": "application/json",
+      });
       res.end(JSON.stringify(result));
       return;
     }
@@ -133,35 +154,58 @@ const httpServer = http.createServer(async (req, res) => {
     if (req.method === "PATCH" && m) {
       const roomId = decodeURIComponent(m[1]);
       const body = await readJsonBody(req);
-      console.log(`[HTTP]   → PATCH /api/rooms/${roomId}/theme mode=${body.mode}`);
-      const result = await pairing.setTheme(pairingStore, { roomId, deviceId: body.deviceId, mode: body.mode, value: body.value });
+      console.log(
+        `[HTTP]   → PATCH /api/rooms/${roomId}/theme mode=${body.mode}`,
+      );
+      const result = await pairing.setTheme(pairingStore, {
+        roomId,
+        deviceId: body.deviceId,
+        mode: body.mode,
+        value: body.value,
+      });
       sendPairingResult(res, result);
       return;
     }
   }
 
   {
-    const m = url.pathname.match(/^\/api\/rooms\/([^/]+)\/messages\/(nudge|welcome)$/);
+    const m = url.pathname.match(
+      /^\/api\/rooms\/([^/]+)\/messages\/(nudge|welcome)$/,
+    );
     if (req.method === "POST" && m) {
       const roomId = decodeURIComponent(m[1]);
       const pool = m[2];
       const body = await readJsonBody(req);
       console.log(`[HTTP]   → POST /api/rooms/${roomId}/messages/${pool}`);
-      const result = await pairing.addMessage(pairingStore, { roomId, deviceId: body.deviceId, pool, text: body.text });
+      const result = await pairing.addMessage(pairingStore, {
+        roomId,
+        deviceId: body.deviceId,
+        pool,
+        text: body.text,
+      });
       sendPairingResult(res, result);
       return;
     }
   }
 
   {
-    const m = url.pathname.match(/^\/api\/rooms\/([^/]+)\/messages\/(nudge|welcome)\/([^/]+)$/);
+    const m = url.pathname.match(
+      /^\/api\/rooms\/([^/]+)\/messages\/(nudge|welcome)\/([^/]+)$/,
+    );
     if (req.method === "DELETE" && m) {
       const roomId = decodeURIComponent(m[1]);
       const pool = m[2];
       const id = decodeURIComponent(m[3]);
       const body = await readJsonBody(req);
-      console.log(`[HTTP]   → DELETE /api/rooms/${roomId}/messages/${pool}/${id}`);
-      const result = await pairing.removeMessage(pairingStore, { roomId, deviceId: body.deviceId, pool, id });
+      console.log(
+        `[HTTP]   → DELETE /api/rooms/${roomId}/messages/${pool}/${id}`,
+      );
+      const result = await pairing.removeMessage(pairingStore, {
+        roomId,
+        deviceId: body.deviceId,
+        pool,
+        id,
+      });
       sendPairingResult(res, result);
       return;
     }
@@ -175,7 +219,10 @@ const httpServer = http.createServer(async (req, res) => {
       const roomId = decodeURIComponent(m[1]);
       const deviceId = req.headers["x-device-id"];
       console.log(`[HTTP]   → GET /api/rooms/${roomId} deviceId=${deviceId}`);
-      const result = await pairing.getRoomView(pairingStore, { roomId, deviceId });
+      const result = await pairing.getRoomView(pairingStore, {
+        roomId,
+        deviceId,
+      });
       sendPairingResult(res, result);
       return;
     }
@@ -187,7 +234,10 @@ const httpServer = http.createServer(async (req, res) => {
       const deviceId = decodeURIComponent(m[1]);
       const body = await readJsonBody(req);
       console.log(`[HTTP]   → PATCH /api/devices/${deviceId}`);
-      const result = await pairing.updateDeviceProfile(pairingStore, { deviceId, patch: body });
+      const result = await pairing.updateDeviceProfile(pairingStore, {
+        deviceId,
+        patch: body,
+      });
       sendPairingResult(res, result);
       return;
     }
@@ -199,17 +249,25 @@ const httpServer = http.createServer(async (req, res) => {
       const roomId = decodeURIComponent(m[1]);
       console.log(`[HTTP]   → GET /pair/${roomId}/*** → fallback page`);
       const room = await pairingStore.getRoom(roomId).catch(() => null);
-      fs.readFile(path.join(__dirname, "pair-fallback.html"), "utf8", (err, html) => {
-        if (err) {
-          console.warn(`[HTTP]   → pair-fallback.html read error: ${err.message}`);
-          res.writeHead(404);
-          res.end("Not found");
-          return;
-        }
-        const roomName = room?.roomName ? `"${room.roomName}"` : "a watch party";
-        res.writeHead(200, { "Content-Type": "text/html" });
-        res.end(html.replace("{{ROOM_NAME}}", roomName));
-      });
+      fs.readFile(
+        path.join(__dirname, "pair-fallback.html"),
+        "utf8",
+        (err, html) => {
+          if (err) {
+            console.warn(
+              `[HTTP]   → pair-fallback.html read error: ${err.message}`,
+            );
+            res.writeHead(404);
+            res.end("Not found");
+            return;
+          }
+          const roomName = room?.roomName
+            ? `"${room.roomName}"`
+            : "a watch party";
+          res.writeHead(200, { "Content-Type": "text/html" });
+          res.end(html.replace("{{ROOM_NAME}}", roomName));
+        },
+      );
       return;
     }
   }
@@ -367,6 +425,18 @@ function participantsList(roomId) {
     name: c.name,
     voice: !!c.voice,
   }));
+}
+
+// A playing room's stored time keeps advancing in the real world after we store it.
+// Anyone reading the state later wants where the video is *now*, not where it was at
+// the last push. Paused rooms are frozen, so their timestamp stays authoritative.
+function projectedTime(state) {
+  if (!state) return 0;
+  const time = typeof state.time === "number" ? state.time : 0;
+  if (state.paused !== false) return time;
+  const ageSec =
+    Math.max(0, Date.now() - (state.updatedAt || Date.now())) / 1000;
+  return time + Math.min(ageSec, MAX_PROJECTION_SEC);
 }
 
 function roomStatus(roomId) {
@@ -629,7 +699,10 @@ wss.on("connection", (ws, req) => {
         name,
         platform: state.platform,
         videoUrl: state.videoUrl,
-        time: state.time,
+        // Aged forward: state.time is a snapshot from the host's last push, which
+        // may be up to a heartbeat old. Handing it over raw starts every joiner
+        // behind by exactly that much, and a hard seek can never claw it back.
+        time: projectedTime(state),
         paused: state.paused,
         existed: roomExisted,
       };
@@ -687,9 +760,18 @@ wss.on("connection", (ws, req) => {
 
       if (wasPaused && msg.paused === false) {
         pairing
-          .triggerNudge(pairingStore, push.sendNudge, { roomId, triggeringDeviceId: clientId })
-          .then((r) => console.log(`[${roomId}] auto-nudge on video-start → ${JSON.stringify(r)}`))
-          .catch((e) => console.warn(`[${roomId}] auto-nudge error: ${e.message}`));
+          .triggerNudge(pairingStore, push.sendNudge, {
+            roomId,
+            triggeringDeviceId: clientId,
+          })
+          .then((r) =>
+            console.log(
+              `[${roomId}] auto-nudge on video-start → ${JSON.stringify(r)}`,
+            ),
+          )
+          .catch((e) =>
+            console.warn(`[${roomId}] auto-nudge error: ${e.message}`),
+          );
       }
 
       const guestCount = [...room.values()].filter(

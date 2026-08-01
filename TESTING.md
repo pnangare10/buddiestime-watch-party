@@ -54,12 +54,49 @@ adb exec-out screencap -p > screenshot.png
 
 ### What to look for in logcat (success criteria)
 
-| Log line | Meaning |
-|----------|---------|
-| `[HWP] syncTo: t=X paused=false cur=0.0` | Guest received initial sync-response |
-| `[HWP] syncTo: t=X paused=false cur=X` | Seek applied (cur ≈ t) |
-| `[HWP] seekTo: t=X cur=Y` | Seek command received (X−Y > 3 triggers actual seek) |
-| `[HWP] seeked event t=X host=false` | Android video element confirmed the seek |
+| Log line                                                 | Meaning                                                         |
+| -------------------------------------------------------- | --------------------------------------------------------------- |
+| `[HWP] role=guest heartbeat=off selfCheck=250ms`         | Guest correction loop armed                                     |
+| `[HWP] role=host heartbeat=1000ms selfCheck=off`         | Host is pushing state every second                              |
+| `[HWP] host state: t=X paused=false`                     | A host sample arrived and was stamped                           |
+| `[HWP] correcting (tick): err=-4.20s target=X lead=0.85` | Guest was 4.2s behind and is seeking past the target            |
+| `[HWP] seek settled in 2.10s — seekCost now 1.24s`       | The device measured its own seek cost and adapted the lead      |
+| `[HWP] buffering at t=X`                                 | Rebuffer started — a `playing` event should follow and re-check |
+
+### Verifying sync convergence (the real proof)
+
+Automated tests cover the pure logic and a simulated player:
+
+```bash
+node --test tests/sync-convergence.test.js
+```
+
+```bash
+cd server && node --test test/*.test.js
+```
+
+Neither can exercise a real DRM player, so convergence itself must be confirmed on two
+devices. Run both, join the same room, then watch the guest's error:
+
+```bash
+adb logcat -s chromium | grep --line-buffered "\[HWP\] correcting\|\[HWP\] seek settled"
+```
+
+Pass criteria:
+
+- After the guest joins, `err` shrinks across at most 2–3 corrections and then corrections
+  **stop**. Continuous `correcting` lines mean the seek lead is hunting.
+- Pause on the host: the guest pauses **at the same timestamp**, not 5–10s behind.
+- Throttle the guest's network to force a rebuffer. It should recover within a few seconds
+  and go quiet again.
+- Leave it running 10 minutes. No slow accumulating drift.
+
+### Not covered by this sync model
+
+- **Ad breaks** — during a Hotstar ad, `currentTime` refers to the ad, not the feature, so
+  two devices in different ad states have incomparable timelines.
+- **Live streams** — `currentTime` is not monotonic and backward seeks may be rejected.
+- **A buffering host** — the host publishes its own stalled position as the truth.
 
 ### Known issues / future hardening
 

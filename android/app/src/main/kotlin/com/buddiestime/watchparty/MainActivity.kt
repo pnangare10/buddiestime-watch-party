@@ -11,6 +11,7 @@ import android.graphics.Color
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.util.Log
 import android.view.Menu
 import android.view.MenuItem
@@ -63,7 +64,16 @@ class MainActivity : AppCompatActivity() {
     private var lastSyncTime: Double? = null
     private var lastSyncPaused: Boolean? = null
 
+    /** elapsedRealtime when lastSyncTime arrived, so we can age it before replaying it. */
+    private var lastSyncReceivedAt: Long = 0L
+
+    /** elapsedRealtime of the last navigation we forced, to keep reloads from looping. */
+    private var lastReloadAt: Long = 0L
+
     @Volatile private var currentPageUrl: String = ""
+
+    /** URL reported by JS. Leads [currentPageUrl] during SPA navigation. */
+    @Volatile private var jsPageUrl: String = ""
 
     // Chat state
     private var participants: List<Participant> = emptyList()
@@ -79,59 +89,119 @@ class MainActivity : AppCompatActivity() {
             if (window.__hwpNative) return;
             window.__hwpNative = true;
 
-            var DRIFT = 2;
+            // Correct beyond this much error. Mirrors SyncPolicy.DRIFT_SEC.
+            var DRIFT = 1.0;
+            // Mirrors SyncPolicy.MAX_PROJECTION_SEC — see SyncPolicy.kt for the tested reference.
+            var MAX_PROJECTION = 30;
+            var HEARTBEAT_MS = 1000;   // host → server push
+            var CHECK_MS = 250;        // guest re-checks itself between heartbeats
+            var CORRECTION_GAP_MS = 2000;  // never stack corrective seeks faster than this
+            var SEEK_SETTLE_MS = 10000;    // give up waiting for a seek to settle after this
+
             var video = null;
             var trackedVideos = [];
             var isSyncing = false;
             var isHost = false;
             var pollTimer = null;
             var stateInterval = null;
-            var pendingSync = null;
+            var checkTimer = null;
+            var hostState = null;      // { time, paused, recvAt } — recvAt is OUR clock
+            var lastUrlSent = '';
+            var seekCost = 0.8;        // EMA, seconds: how long a seek takes to resume here
+            var pendingSeekAt = 0;
+            var lastCorrectionAt = 0;
+
+            // Where the host's video is *now*. Its sample is always stale by the time it
+            // reaches us, and seeking to a stale timestamp is what left guests permanently
+            // behind: the seek itself costs seconds, so they land where the host used to be.
+            function projectedTarget() {
+                if (!hostState) return null;
+                if (hostState.paused) return hostState.time;
+                var age = Math.max(0, (Date.now() - hostState.recvAt) / 1000);
+                return hostState.time + Math.min(age, MAX_PROJECTION);
+            }
+
+            function noteSeekSettled() {
+                if (!pendingSeekAt) return;
+                var cost = (Date.now() - pendingSeekAt) / 1000;
+                pendingSeekAt = 0;
+                if (cost > 0 && cost < 20) {
+                    seekCost = 0.7 * seekCost + 0.3 * cost;
+                    if (seekCost < 0.2) seekCost = 0.2;
+                    if (seekCost > 5.0) seekCost = 5.0;
+                }
+                console.log('[HWP] seek settled in ' + cost.toFixed(2) + 's — seekCost now ' + seekCost.toFixed(2) + 's');
+            }
+
+            function evaluate(reason) {
+                if (isHost || !video || !hostState) return;
+                if (pendingSeekAt) {
+                    // A correction is still buffering. Issuing another seek now would restart
+                    // that buffer and we would never converge.
+                    if (Date.now() - pendingSeekAt < SEEK_SETTLE_MS) return;
+                    pendingSeekAt = 0;
+                }
+                var target = projectedTarget();
+                var err = video.currentTime - target;   // negative → we are behind the host
+                var pauseMismatch = video.paused !== hostState.paused;
+
+                if (Math.abs(err) > DRIFT) {
+                    if (Date.now() - lastCorrectionAt < CORRECTION_GAP_MS) return;
+                    lastCorrectionAt = Date.now();
+                    // Aim past the target by what a seek actually costs on THIS device, so
+                    // playback resumes level with the host rather than seekCost seconds behind.
+                    var lead = hostState.paused ? 0 : seekCost;
+                    console.log('[HWP] correcting (' + reason + '): err=' + err.toFixed(2) + 's target=' + target.toFixed(2) + ' lead=' + lead.toFixed(2));
+                    isSyncing = true;
+                    pendingSeekAt = Date.now();
+                    video.currentTime = target + lead;
+                    if (hostState.paused && !video.paused) video.pause();
+                    else if (!hostState.paused && video.paused) video.play().catch(function() {});
+                    setTimeout(function() { isSyncing = false; }, 1000);
+                } else if (pauseMismatch) {
+                    console.log('[HWP] pause mismatch (' + reason + '): err=' + err.toFixed(2) + 's → ' + (hostState.paused ? 'pause' : 'play'));
+                    isSyncing = true;
+                    if (hostState.paused) video.pause();
+                    else video.play().catch(function() {});
+                    setTimeout(function() { isSyncing = false; }, 1000);
+                }
+            }
+
+            // Native hands us the host's latest sample; we stamp arrival on our own clock so
+            // we can age it ourselves. No cross-device clock agreement is needed.
+            window.HWP_applyHostState = function(time, paused) {
+                hostState = { time: time, paused: paused, recvAt: Date.now() };
+                console.log('[HWP] host state: t=' + time.toFixed(2) + ' paused=' + paused + (video ? '' : ' (no video yet — will apply when found)'));
+                evaluate('host-update');
+            };
+
+            // Older callers (and onPageFinished replay) still use this name.
+            window.HWP_syncTo = function(time, paused) { window.HWP_applyHostState(time, paused); };
 
             window.HWP_setRole = function(r) {
                 isHost = (r === 'host');
+                if (stateInterval) { clearInterval(stateInterval); stateInterval = null; }
+                if (checkTimer)    { clearInterval(checkTimer);    checkTimer    = null; }
                 if (isHost) {
-                    if (stateInterval) clearInterval(stateInterval);
                     stateInterval = setInterval(function() {
                         if (!video) return;
-                        console.log('[HWP] periodic state-update: t=' + video.currentTime.toFixed(2) + ' paused=' + video.paused + ' url=' + window.location.href);
                         HwpBridge.onStateUpdate(video.currentTime, video.paused, window.location.href);
-                    }, 5000);
-                }
-            };
-
-            window.HWP_syncTo = function(time, paused) {
-                if (!video) {
-                    console.log('[HWP] syncTo buffered: t=' + time + ' paused=' + paused);
-                    pendingSync = { time: time, paused: paused };
-                    return;
-                }
-                var drift = Math.abs(video.currentTime - time);
-                var pauseMismatch = video.paused !== paused;
-                console.log('[HWP] syncTo check: hostT=' + time.toFixed(2) + ' guestT=' + video.currentTime.toFixed(1) + ' drift=' + drift.toFixed(2) + ' pauseMismatch=' + pauseMismatch);
-                if (drift > DRIFT) {
-                    console.log('[HWP] drift exceeded — seeking + correcting pause');
-                    isSyncing = true;
-                    video.currentTime = time;
-                    if (paused && !video.paused) video.pause();
-                    else if (!paused && video.paused) video.play().catch(function() {});
-                    setTimeout(function() { isSyncing = false; }, 500);
-                } else if (pauseMismatch) {
-                    console.log('[HWP] pause mismatch — correcting pause state only');
-                    isSyncing = true;
-                    if (paused && !video.paused) video.pause();
-                    else if (!paused && video.paused) video.play().catch(function() {});
-                    setTimeout(function() { isSyncing = false; }, 500);
+                    }, HEARTBEAT_MS);
                 } else {
-                    console.log('[HWP] in sync — no correction needed');
+                    // Self-check between heartbeats: the target is extrapolated locally, so
+                    // this costs no network traffic and catches drift within 250ms.
+                    checkTimer = setInterval(function() { evaluate('tick'); }, CHECK_MS);
                 }
+                console.log('[HWP] role=' + r + ' heartbeat=' + (isHost ? HEARTBEAT_MS + 'ms' : 'off') + ' selfCheck=' + (isHost ? 'off' : CHECK_MS + 'ms'));
             };
 
             window.HWP_stop = function() {
-                if (pollTimer)     { clearTimeout(pollTimer);   pollTimer     = null; }
+                if (pollTimer)     { clearTimeout(pollTimer);      pollTimer     = null; }
                 if (stateInterval) { clearInterval(stateInterval); stateInterval = null; }
+                if (checkTimer)    { clearInterval(checkTimer);    checkTimer    = null; }
                 trackedVideos = [];
                 video = null;
+                hostState = null;
                 window.__hwpNative = false;
             };
 
@@ -147,6 +217,21 @@ class MainActivity : AppCompatActivity() {
                 v.addEventListener('seeked', function() {
                     console.log('[HWP] seeked t=' + v.currentTime.toFixed(2) + ' host=' + isHost + ' syncing=' + isSyncing);
                     if (!isSyncing && isHost) HwpBridge.onStateUpdate(v.currentTime, v.paused, window.location.href);
+                    // A seek while the host is paused never fires 'playing', so settle here.
+                    if (!isHost && hostState && hostState.paused) noteSeekSettled();
+                });
+                // Rebuffering is the main way a guest falls behind, and nothing used to
+                // observe it. The moment playback resumes, re-measure and re-check.
+                v.addEventListener('playing', function() {
+                    if (isHost) return;
+                    noteSeekSettled();
+                    evaluate('playing');
+                });
+                v.addEventListener('waiting', function() {
+                    console.log('[HWP] buffering at t=' + v.currentTime.toFixed(2));
+                });
+                v.addEventListener('stalled', function() {
+                    console.log('[HWP] stalled at t=' + v.currentTime.toFixed(2));
                 });
             }
 
@@ -182,14 +267,22 @@ class MainActivity : AppCompatActivity() {
                     if (best !== video) {
                         video = best;
                         console.log('[HWP] active video selected: dur=' + best.duration.toFixed(1) + ' readyState=' + best.readyState + ' paused=' + best.paused);
-                    }
-                    if (pendingSync) {
-                        var ps = pendingSync;
-                        pendingSync = null;
-                        console.log('[HWP] applying pendingSync: t=' + ps.time + ' paused=' + ps.paused);
-                        HWP_syncTo(ps.time, ps.paused);
+                        // A host sample that arrived before the video existed is still valid —
+                        // projectedTarget() ages it, so it does not need re-buffering here.
+                        evaluate('video-ready');
                     }
                 }
+
+                // Report our URL from JS. The native onPageFinished/doUpdateVisitedHistory
+                // callbacks lag behind SPA pushState (see Learnings/spa-url-tracking-android-webview.md),
+                // and comparing against that stale value is what made the guest reload the
+                // page instead of syncing.
+                var href = window.location.href;
+                if (href !== lastUrlSent) {
+                    lastUrlSent = href;
+                    if (HwpBridge.onUrlChange) HwpBridge.onUrlChange(href);
+                }
+
                 pollTimer = setTimeout(poll, 1000);
             }
 
@@ -202,6 +295,13 @@ class MainActivity : AppCompatActivity() {
         fun onStateUpdate(time: Double, paused: Boolean, url: String) {
             Log.d(TAG, "JsBridge.onStateUpdate t=${"%.2f".format(time)} paused=$paused url=$url")
             manager?.sendStateUpdate(time, paused, url)
+        }
+
+        /** Page URL as JS sees it — authoritative during SPA navigation, unlike currentPageUrl. */
+        @JavascriptInterface
+        fun onUrlChange(url: String) {
+            Log.d(TAG, "JsBridge.onUrlChange url=$url")
+            jsPageUrl = url
         }
     }
 
@@ -339,7 +439,12 @@ class MainActivity : AppCompatActivity() {
                 val t = lastSyncTime
                 val p = lastSyncPaused
                 if (t != null && p != null && manager?.role == "guest") {
-                    view.evaluateJavascript("HWP_syncTo($t, $p)", null)
+                    // A page load takes seconds; replaying the raw timestamp we received
+                    // before it started is what left guests behind after every navigation.
+                    val age = SystemClock.elapsedRealtime() - lastSyncReceivedAt
+                    val projected = SyncPolicy.projectTarget(t, p, age)
+                    Log.d(TAG, "onPageFinished replay: t=$t aged ${age}ms → $projected paused=$p")
+                    view.evaluateJavascript("HWP_applyHostState($projected, $p)", null)
                 }
             }
         }
@@ -459,15 +564,23 @@ class MainActivity : AppCompatActivity() {
             onSyncCommand = { time, paused, videoUrl, platform ->
                 lastSyncTime = time
                 lastSyncPaused = paused
+                lastSyncReceivedAt = SystemClock.elapsedRealtime()
                 if (platform.isNotEmpty() && platform != currentService?.name) {
                     val newService = getStreamingService(platform)
                     currentService = newService
                     webView.settings.userAgentString = newService.userAgent
                 }
-                if (videoUrl.isNotEmpty() && videoUrl != currentPageUrl) {
+                // Prefer the JS-reported URL: currentPageUrl lags behind SPA navigation, and
+                // treating that lag as "different video" used to replace every sync with a
+                // page reload — which then re-applied a position stale by the whole load.
+                val guestUrl = jsPageUrl.ifBlank { currentPageUrl }
+                val now = SystemClock.elapsedRealtime()
+                if (SyncPolicy.shouldReload(videoUrl, guestUrl, lastReloadAt, now)) {
+                    Log.d(TAG, "sync: host on different content → navigating (host=$videoUrl guest=$guestUrl)")
+                    lastReloadAt = now
                     webView.loadUrl(videoUrl, currentService?.headersOverride ?: mapOf("X-Requested-With" to ""))
                 } else {
-                    webView.evaluateJavascript("HWP_syncTo($time, $paused)", null)
+                    webView.evaluateJavascript("HWP_applyHostState($time, $paused)", null)
                 }
             },
             onStatusChange = { status ->
@@ -524,6 +637,8 @@ class MainActivity : AppCompatActivity() {
         manager = null
         lastSyncTime = null
         lastSyncPaused = null
+        lastSyncReceivedAt = 0L
+        lastReloadAt = 0L
         tvStatus.visibility = View.GONE
         fabChat.visibility = View.GONE
         fabMic.visibility = View.GONE
