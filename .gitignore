@@ -19,3 +19,6 @@ android/local.properties
 *.keystore
 release.keystore
 android/app/release.keystore
+
+# emulator role pinning is machine-specific (device serials)
+tools/emu.config.json

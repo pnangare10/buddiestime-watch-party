@@ -1,52 +1,58 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
-SERVICE=${1:-netflix}  # Default to netflix
+# Buddies Time — service integration smoke test.
+#
+# Drives the app through tools/emu.js so taps resolve against resource-ids from the
+# accessibility tree instead of hardcoded pixel coordinates.
+#
+# Usage: bash test-automation.sh [netflix|hotstar|primevideo|youtube]
+
+SERVICE="${1:-netflix}"
 LOG_FILE="test-results-${SERVICE}-$(date +%s).log"
-ADB="/c/Users/prane_ii3rizl/AppData/Local/Android/Sdk/platform-tools/adb.exe"
+EMU="node $(dirname "$0")/tools/emu.js"
 
-echo "[TEST] Buddies Time - $SERVICE Integration Test" | tee "$LOG_FILE"
-echo "========================================" >> "$LOG_FILE"
-echo "Test Date: $(date)" >> "$LOG_FILE"
-echo "Service: $SERVICE" >> "$LOG_FILE"
-echo "========================================" >> "$LOG_FILE"
+case "$SERVICE" in
+  netflix)    CARD='#cardNetflix'    ;;
+  hotstar)    CARD='#cardHotstar'    ;;
+  primevideo) CARD='#cardPrimeVideo' ;;
+  youtube)    CARD='#cardYouTube'    ;;
+  *) echo "Unknown service: $SERVICE (expected netflix|hotstar|primevideo|youtube)" >&2; exit 2 ;;
+esac
 
-# Kill any running instance
-echo "[INFO] Stopping any running instance..." | tee -a "$LOG_FILE"
-"$ADB" shell am force-stop com.buddiestime.watchparty || true
-sleep 2
+{
+  echo "[TEST] Buddies Time - $SERVICE Integration Test"
+  echo "========================================"
+  echo "Test Date: $(date)"
+  echo "Service: $SERVICE"
+  echo "========================================"
+} | tee "$LOG_FILE"
 
-# Launch ServiceSelectorActivity
-echo "[INFO] Launching ServiceSelectorActivity..." | tee -a "$LOG_FILE"
-"$ADB" shell am start -n com.buddiestime.watchparty/.ServiceSelectorActivity
+# ServiceSelectorActivity is exported="false", so it cannot be started by component.
+# Enter through the launcher and navigate.
+echo "[INFO] Launching app via launcher intent..." | tee -a "$LOG_FILE"
+$EMU launch --restart | tee -a "$LOG_FILE"
 sleep 4
 
-# Determine which tile to tap based on service
-if [ "$SERVICE" = "netflix" ]; then
-    echo "[ACTION] Tapping Netflix tile..." | tee -a "$LOG_FILE"
-    # Approximate coordinates for Netflix card on Pixel 7 Pro
-    "$ADB" shell input tap 720 1200
-else
-    echo "[ACTION] Tapping Hotstar tile..." | tee -a "$LOG_FILE"
-    # Approximate coordinates for Hotstar card on Pixel 7 Pro
-    "$ADB" shell input tap 720 600
+echo "[INFO] Current screen:" | tee -a "$LOG_FILE"
+$EMU ui | tee -a "$LOG_FILE"
+
+echo "[ACTION] Tapping $SERVICE card ($CARD)..." | tee -a "$LOG_FILE"
+if ! $EMU tap "$CARD" >>"$LOG_FILE" 2>&1; then
+  echo "[FAIL] $CARD not found on screen — is the app past first-run setup?" | tee -a "$LOG_FILE"
+  echo "       Run '$EMU ui' to see the current screen." | tee -a "$LOG_FILE"
+  exit 1
 fi
 
 echo "[INFO] Waiting for MainActivity to load..." | tee -a "$LOG_FILE"
 sleep 6
 
-# Clear and start capturing logcat
-"$ADB" logcat -c
-sleep 1
-
-echo "[INFO] Checking for video element detection..." | tee -a "$LOG_FILE"
+$EMU logcat -c >/dev/null
 sleep 5
 
-# Capture HWP sync messages
 echo "" >> "$LOG_FILE"
-echo "[LOGCAT] Sync Messages:" >> "$LOG_FILE"
-"$ADB" logcat -d 2>&1 | grep -E "\[HWP\]|error|failed|not supported" >> "$LOG_FILE" 2>&1 || true
+echo "[LOGCAT] Sync messages:" >> "$LOG_FILE"
+$EMU logcat -n200 >> "$LOG_FILE" 2>&1 || true
 
 echo "[INFO] Test sequence complete." | tee -a "$LOG_FILE"
-echo "" | tee -a "$LOG_FILE"
 echo "Results saved to: $LOG_FILE" | tee -a "$LOG_FILE"

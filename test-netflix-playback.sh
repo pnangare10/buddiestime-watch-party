@@ -1,16 +1,17 @@
 #!/bin/bash
 
 # Netflix Playback Test
-# Opens app, clicks Netflix, plays video, and verifies playback
+# Opens the app, selects Netflix, attempts playback, and verifies via logcat.
 # Usage: bash test-netflix-playback.sh
+#
+# App navigation goes through tools/emu.js, so taps resolve against resource-ids
+# rather than hardcoded coordinates. Taps *inside* the Netflix player still use
+# coordinates — that DOM is login-gated and its controls are not knowable up front.
 
-ADB="${HOME}/AppData/Local/Android/Sdk/platform-tools/adb.exe"
-APP_PACKAGE="com.buddiestime.watchparty"
-APP_ACTIVITY=".ServiceSelectorActivity"
+EMU="node $(dirname "$0")/tools/emu.js"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 LOG_FILE="test-netflix-playback-${TIMESTAMP}.log"
 
-# Color codes
 GREEN='\033[0;32m'
 RED='\033[0;31m'
 YELLOW='\033[1;33m'
@@ -22,19 +23,17 @@ echo -e "${BLUE}║         Netflix Playback Test Suite                        �
 echo -e "${BLUE}╚════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 
-# Initialize counters
 TESTS=0
 PASSED=0
 
-# Helper function
 test_check() {
     local test_name="$1"
     local condition="$2"
 
-    ((TESTS++))
+    TESTS=$((TESTS + 1))
     if eval "$condition"; then
         echo -e "${GREEN}✓ PASS${NC} [$TESTS] $test_name"
-        ((PASSED++))
+        PASSED=$((PASSED + 1))
         return 0
     else
         echo -e "${RED}✗ FAIL${NC} [$TESTS] $test_name"
@@ -42,67 +41,74 @@ test_check() {
     fi
 }
 
+# Screen centre, derived rather than hardcoded — the old 720,1200 / 360,600 values
+# were device-specific and disagreed with each other across scripts.
+read -r SCREEN_W SCREEN_H < <($EMU size)
+CENTER_X=$((SCREEN_W / 2))
+CENTER_Y=$((SCREEN_H / 2))
+
 echo "────────────────────────────────────────────────────────────"
 echo "[Step 1] App Management"
 echo "────────────────────────────────────────────────────────────"
 
-# Stop if running, then start
-$ADB shell am force-stop "$APP_PACKAGE" 2>/dev/null || true
-sleep 1
-
-echo "Starting app..."
-$ADB shell am start -n "$APP_PACKAGE/$APP_ACTIVITY" > /dev/null 2>&1
+# ServiceSelectorActivity is exported="false" — it cannot be started by component.
+# Enter through the launcher instead.
+echo "Starting app via launcher intent..."
+$EMU launch --restart
 sleep 4
 
-test_check "App started" "$ADB shell pidof $APP_PACKAGE > /dev/null"
+test_check "App started" "$EMU ui > /dev/null 2>&1"
 
 echo ""
 echo "────────────────────────────────────────────────────────────"
 echo "[Step 2] Netflix Selection"
 echo "────────────────────────────────────────────────────────────"
 
-echo "Clicking Netflix tile (coordinates: 720, 1200)..."
-$ADB shell input tap 720 1200
-sleep 8
+echo "Tapping Netflix card (#cardNetflix)..."
+if test_check "Netflix card tapped" "$EMU tap '#cardNetflix' > /dev/null 2>&1"; then
+    sleep 8
+else
+    echo -e "${YELLOW}  ↳ #cardNetflix not on screen. Current screen:${NC}"
+    $EMU ui | sed 's/^/    /'
+    echo -e "${RED}Cannot continue without reaching the service selector.${NC}"
+    exit 1
+fi
 
-test_check "Netflix UI loaded" "$ADB logcat -d -s chromium:I | grep -q 'Meta Pixel'"
+test_check "Netflix UI loaded" "$EMU logcat -n400 | grep -q 'Meta Pixel'"
 
 echo ""
 echo "────────────────────────────────────────────────────────────"
 echo "[Step 3] Video Load Verification"
 echo "────────────────────────────────────────────────────────────"
 
-echo "Checking for video element..."
-test_check "Video element found" "$ADB logcat -d -s chromium:I | grep -q '\[HWP\] video found'"
-
-echo "Checking video readiness..."
-test_check "Video ready (readyState=4)" "$ADB logcat -d -s chromium:I | grep -q 'readyState=4'"
-
-echo "Checking region setting..."
-test_check "Language set to en-IN" "$ADB logcat -d -s chromium:I | grep -q 'Language set to en-IN'"
+test_check "Video element found" "$EMU logcat -n400 | grep -q '\[HWP\] video found'"
+test_check "Video ready (readyState=4)" "$EMU logcat -n400 | grep -q 'readyState=4'"
+test_check "Language set to en-IN" "$EMU logcat -n400 | grep -q 'Language set to en-IN'"
 
 echo ""
 echo "────────────────────────────────────────────────────────────"
 echo "[Step 4] Playback Controls"
 echo "────────────────────────────────────────────────────────────"
 
-echo "Looking for play/pause controls..."
-test_check "Play/Pause events detected" "$ADB logcat -d -s chromium:I | grep -q '\[HWP\].*event'"
-
-echo "Checking for video sources..."
-test_check "Video source loaded (blob)" "$ADB logcat -d -s chromium:I | grep -q 'blob:https://www.netflix.com'"
+test_check "Play/Pause events detected" "$EMU logcat -n400 | grep -q '\[HWP\].*event'"
+test_check "Video source loaded (blob)" "$EMU logcat -n400 | grep -q 'blob:https://www.netflix.com'"
 
 echo ""
 echo "────────────────────────────────────────────────────────────"
 echo "[Step 5] Playback Simulation"
 echo "────────────────────────────────────────────────────────────"
 
-echo "Attempting to click play button..."
-$ADB shell input tap 360 600
+echo "Attempting to click play..."
+if $EMU tap '~play' > /dev/null 2>&1; then
+    echo "  ↳ tapped a labelled play control from the accessibility tree"
+else
+    echo -e "${YELLOW}  ↳ no labelled play control exposed; falling back to centre tap"
+    echo -e "     (${CENTER_X},${CENTER_Y}) — fragile by nature, Netflix's player DOM is login-gated${NC}"
+    $EMU tap "${CENTER_X},${CENTER_Y}" > /dev/null 2>&1
+fi
 sleep 3
 
-echo "Checking if content is interactive..."
-test_check "Video responds to input" "$ADB logcat -d -s chromium:I | grep -q 'pause event\|play event'"
+test_check "Video responds to input" "$EMU logcat -n400 | grep -q 'pause event\|play event'"
 
 echo ""
 echo "────────────────────────────────────────────────────────────"
@@ -111,11 +117,11 @@ echo "────────────────────────�
 echo ""
 
 echo -e "${YELLOW}Last 10 HWP Events:${NC}"
-$ADB logcat -d -s "chromium:I" | grep "\[HWP\]" | tail -10 | sed 's/^/  /'
+$EMU logcat -n400 | grep "\[HWP\]" | tail -10 | sed 's/^/  /'
 
 echo ""
 echo -e "${YELLOW}Video Metadata:${NC}"
-$ADB logcat -d -s "chromium:I" | grep "video found" | tail -3 | sed 's/^/  /'
+$EMU logcat -n400 | grep "video found" | tail -3 | sed 's/^/  /'
 
 echo ""
 echo "────────────────────────────────────────────────────────────"
@@ -123,7 +129,6 @@ echo "[Step 7] Final Results"
 echo "────────────────────────────────────────────────────────────"
 echo ""
 
-# Print summary
 FAILED=$((TESTS - PASSED))
 echo -e "Total Tests: ${BLUE}${TESTS}${NC}"
 echo -e "Passed:      ${GREEN}${PASSED}${NC}"

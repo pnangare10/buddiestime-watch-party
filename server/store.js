@@ -5,27 +5,45 @@ const TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
 const STORE_READY = !!(BASE && TOKEN);
 
 if (!STORE_READY) {
-  console.warn('[STORE] Upstash credentials missing — pairing endpoints will fail closed');
-  console.warn('[STORE]   UPSTASH_REDIS_REST_URL set?', !!BASE);
-  console.warn('[STORE]   UPSTASH_REDIS_REST_TOKEN set?', !!TOKEN);
+  console.warn(
+    "[STORE] Upstash credentials missing — pairing endpoints will fail closed",
+  );
+  console.warn("[STORE]   UPSTASH_REDIS_REST_URL set?", !!BASE);
+  console.warn("[STORE]   UPSTASH_REDIS_REST_TOKEN set?", !!TOKEN);
 } else {
-  console.log('[STORE] Upstash ready');
+  console.log("[STORE] Upstash ready");
+}
+
+// Thrown instead of letting an unconfigured store reach fetch(). Without this guard BASE is
+// undefined, so the URL below becomes the literal string "undefined/SET/..." and fetch throws
+// ERR_INVALID_URL from inside undici — an unhandled rejection that kills the process. The
+// warning above promised "fail closed"; this is what actually makes that true.
+class StoreUnavailableError extends Error {
+  constructor() {
+    super("Upstash credentials missing — pairing is unavailable");
+    this.name = "StoreUnavailableError";
+    this.code = "STORE_UNAVAILABLE";
+  }
 }
 
 async function cmd(...parts) {
-  const url = BASE + '/' + parts.map(encodeURIComponent).join('/');
-  const res = await fetch(url, { headers: { Authorization: `Bearer ${TOKEN}` } });
-  if (!res.ok) throw new Error(`[STORE] Upstash ${parts[0]} failed: ${res.status}`);
+  if (!STORE_READY) throw new StoreUnavailableError();
+  const url = BASE + "/" + parts.map(encodeURIComponent).join("/");
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${TOKEN}` },
+  });
+  if (!res.ok)
+    throw new Error(`[STORE] Upstash ${parts[0]} failed: ${res.status}`);
   const body = await res.json();
   return body.result;
 }
 
 async function getJSON(key) {
-  const raw = await cmd('GET', key);
+  const raw = await cmd("GET", key);
   return raw ? JSON.parse(raw) : null;
 }
 async function putJSON(key, value) {
-  await cmd('SET', key, JSON.stringify(value));
+  await cmd("SET", key, JSON.stringify(value));
 }
 
 const deviceKey = (id) => `device:${id}`;
@@ -33,26 +51,49 @@ const roomKey = (id) => `room:${id}`;
 const roomNameKey = (name) => `roomname:${name.toLowerCase()}`;
 const inviteKey = (token) => `invite:${token}`;
 
-async function getDevice(id) { return getJSON(deviceKey(id)); }
-async function putDevice(id, rec) { return putJSON(deviceKey(id), rec); }
-async function getRoom(id) { return getJSON(roomKey(id)); }
-async function putRoom(id, rec) { return putJSON(roomKey(id), rec); }
-async function findRoomIdByName(name) { return cmd('GET', roomNameKey(name)); }
+async function getDevice(id) {
+  return getJSON(deviceKey(id));
+}
+async function putDevice(id, rec) {
+  return putJSON(deviceKey(id), rec);
+}
+async function getRoom(id) {
+  return getJSON(roomKey(id));
+}
+async function putRoom(id, rec) {
+  return putJSON(roomKey(id), rec);
+}
+async function findRoomIdByName(name) {
+  return cmd("GET", roomNameKey(name));
+}
 
 // SETNX — atomic "set if not exists"; Upstash returns 1 on success, 0 if the key existed.
 async function reserveRoomName(name, roomId) {
-  const result = await cmd('SETNX', roomNameKey(name), roomId);
+  const result = await cmd("SETNX", roomNameKey(name), roomId);
   return result === 1;
 }
 
 async function getInvite(token) {
-  const roomId = await cmd('GET', inviteKey(token));
+  const roomId = await cmd("GET", inviteKey(token));
   return roomId ? { roomId } : null;
 }
-async function putInvite(token, roomId) { await cmd('SET', inviteKey(token), roomId); }
-async function deleteInvite(token) { await cmd('DEL', inviteKey(token)); }
+async function putInvite(token, roomId) {
+  await cmd("SET", inviteKey(token), roomId);
+}
+async function deleteInvite(token) {
+  await cmd("DEL", inviteKey(token));
+}
 
 module.exports = {
-  STORE_READY, getDevice, putDevice, getRoom, putRoom,
-  findRoomIdByName, reserveRoomName, getInvite, putInvite, deleteInvite,
+  STORE_READY,
+  StoreUnavailableError,
+  getDevice,
+  putDevice,
+  getRoom,
+  putRoom,
+  findRoomIdByName,
+  reserveRoomName,
+  getInvite,
+  putInvite,
+  deleteInvite,
 };

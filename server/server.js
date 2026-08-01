@@ -68,7 +68,7 @@ function sendPairingResult(res, result) {
   res.end(JSON.stringify(result));
 }
 
-const httpServer = http.createServer(async (req, res) => {
+async function handleHttp(req, res) {
   const url = new URL(req.url, `http://localhost`);
   console.log(`[HTTP] ${req.method} ${url.pathname}`);
 
@@ -338,6 +338,41 @@ const httpServer = http.createServer(async (req, res) => {
   console.log(`[HTTP]   → no route match → 404`);
   res.writeHead(404, { "Content-Type": "text/plain" });
   res.end("Not found");
+}
+
+// Error boundary. handleHttp is async, so without this any rejection inside a route becomes an
+// unhandled rejection and Node terminates the process — one bad request took the whole server
+// down and every subsequent call 502'd until the platform restarted it.
+const httpServer = http.createServer((req, res) => {
+  handleHttp(req, res).catch((err) => {
+    const unavailable = err && err.code === "STORE_UNAVAILABLE";
+    if (unavailable) {
+      console.warn(
+        `[HTTP]   → ${req.method} ${req.url} → 503 store-unavailable`,
+      );
+    } else {
+      console.error(`[HTTP]   → ${req.method} ${req.url} → 500`, err);
+    }
+    if (res.headersSent) {
+      res.destroy();
+      return;
+    }
+    res.writeHead(unavailable ? 503 : 500, {
+      "Content-Type": "application/json",
+    });
+    res.end(
+      JSON.stringify({
+        ok: false,
+        reason: unavailable ? "store-unavailable" : "internal-error",
+      }),
+    );
+  });
+});
+
+// Last resort: log instead of dying silently. A rejection that escapes the boundary above is a
+// bug worth seeing in the platform logs rather than a bare stack trace and an exit.
+process.on("unhandledRejection", (err) => {
+  console.error("[SERVER] unhandled rejection —", err);
 });
 
 const wss = new WebSocketServer({ server: httpServer });
@@ -677,10 +712,14 @@ wss.on("connection", (ws, req) => {
           `[${roomId}] clientId=${clientId} already present — closing stale socket first`,
         );
         const stale = byId.get(clientId);
+        // Evict BEFORE closing. The stale socket's close handler announces a
+        // departure, and it must not do so for a client that is merely
+        // reconnecting — dropping it from the room first is what makes its
+        // `leaving` lookup come back empty and stay quiet.
+        room.delete(stale);
         try {
           stale.close(1000, "replaced");
         } catch {}
-        room.delete(stale);
       }
 
       const role = room.size === 0 ? "host" : "guest";
@@ -910,6 +949,21 @@ wss.on("connection", (ws, req) => {
       return;
     }
 
+    // ── close-app (one device asks its peers to shut down) ───────────────
+    if (msg.type === "close-app") {
+      console.log(
+        `[${roomId}] CLOSE-APP from ${senderInfo.role}:${senderInfo.id}(${senderInfo.name}) → relaying to peers`,
+      );
+      // from/name are stamped here, never taken from the client, so a peer can
+      // always show who asked. The sender is excluded — it keeps its own app.
+      broadcast(roomId, ws, {
+        type: "close-app",
+        from: senderInfo.id,
+        name: senderInfo.name,
+      });
+      return;
+    }
+
     console.log(
       `[${roomId}] unknown message type="${msg.type}" from clientId=${clientId}`,
     );
@@ -946,6 +1000,20 @@ wss.on("connection", (ws, req) => {
       if (leaving?.role === "host") {
         console.log(`[${roomId}] host left — promoting a replacement`);
         promoteNewHost(roomId);
+      }
+      // Only a socket that was still a room member genuinely left. A socket
+      // displaced by a reconnect was already evicted in the join handler, so
+      // `leaving` is empty and no departure is announced.
+      if (leaving) {
+        console.log(
+          `[${roomId}] announcing departure of ${leaving.id}(${leaving.name})`,
+        );
+        broadcastToAll(roomId, {
+          type: "system",
+          event: "left",
+          name: leaving.name,
+          ts: Date.now(),
+        });
       }
       broadcastParticipants(roomId, "member-left");
       if (leaving?.voice) {
