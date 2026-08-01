@@ -1,7 +1,7 @@
 package com.buddiestime.watchparty
 
 object Config {
-    const val SERVER_URL = "wss://buddy.taildf8a58.ts.net"
+    const val SERVER_URL = "wss://buddiestime-watch-party-2elk.onrender.com"
 
     fun baseHttpUrl(wsUrl: String = SERVER_URL): String =
         wsUrl.replaceFirst("wss://", "https://").replaceFirst("ws://", "http://").trimEnd('/')
