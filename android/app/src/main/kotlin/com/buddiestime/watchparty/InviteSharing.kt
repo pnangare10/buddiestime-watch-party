@@ -19,17 +19,19 @@ object InviteSharing {
         onDone: (error: String?) -> Unit,
     ) {
         api.mintInvite(roomId, deviceId, pin) { token, error ->
-            if (token == null) {
-                onDone(error)
-                return@mintInvite
+            activity.runOnUiThread {
+                if (token == null) {
+                    onDone(error)
+                } else {
+                    val link = "${Config.baseHttpUrl()}/pair/$roomId/$token"
+                    val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                        type = "text/plain"
+                        putExtra(Intent.EXTRA_TEXT, "Join our watch party 💗 $link")
+                    }
+                    activity.startActivity(Intent.createChooser(shareIntent, "Send the invite"))
+                    onDone(null)
+                }
             }
-            val link = "${Config.baseHttpUrl()}/pair/$roomId/$token"
-            val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                type = "text/plain"
-                putExtra(Intent.EXTRA_TEXT, "Join our watch party 💗 $link")
-            }
-            activity.startActivity(Intent.createChooser(shareIntent, "Send the invite"))
-            onDone(null)
         }
     }
 }
