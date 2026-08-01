@@ -1,7 +1,9 @@
 package com.buddiestime.watchparty
 
 import android.content.Context
+import android.media.AudioDeviceInfo
 import android.media.AudioManager
+import android.os.Build
 import android.util.Log
 import io.livekit.android.LiveKit
 import io.livekit.android.audio.AudioSwitchHandler
@@ -107,13 +109,46 @@ class VoiceManager(
             try {
                 r.localParticipant.setMicrophoneEnabled(on)
                 micOn = on
+                if (on) routeMicToConnectedAccessory() else clearMicRoute()
                 val am = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
-                Log.d(TAG, "  mic now ${if (on) "ON" else "OFF"} — system AudioManager.mode=${am?.mode} isMusicActive=${am?.isMusicActive}")
+                Log.d(TAG, "  mic now ${if (on) "ON" else "OFF"} — system AudioManager.mode=${am?.mode} isMusicActive=${am?.isMusicActive} commDevice=${am?.communicationDevice?.type}")
             } catch (e: Throwable) {
                 Log.e(TAG, "setMicOn($on) failed: ${e.message}", e)
                 onError("mic-toggle-failed: ${e.message ?: "unknown"}")
             }
         }
+    }
+
+    /**
+     * MODE_NORMAL (set above to stop the video-ducking bug) means AudioSwitch's own
+     * Bluetooth-SCO/wired routing may not stick — the platform's audio policy ties reliable
+     * mic-capture-follows-accessory behavior to a communication-flavored AudioManager.mode,
+     * which is exactly what we removed. setCommunicationDevice (API 31+) routes just the
+     * voice-communication-tagged mic stream to a specific device without touching the global
+     * mode, so it's the one lever that gets correct routing back without reintroducing ducking.
+     */
+    private fun routeMicToConnectedAccessory() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
+        val am = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager ?: return
+        val preferredTypes = listOf(
+            AudioDeviceInfo.TYPE_BLUETOOTH_SCO,
+            AudioDeviceInfo.TYPE_WIRED_HEADSET,
+            AudioDeviceInfo.TYPE_WIRED_HEADPHONES,
+            AudioDeviceInfo.TYPE_USB_HEADSET,
+        )
+        val available = am.availableCommunicationDevices
+        val target = preferredTypes.firstNotNullOfOrNull { type -> available.firstOrNull { it.type == type } }
+        if (target == null) {
+            Log.d(TAG, "  no preferred mic accessory found, available=${available.map { it.type }}")
+            return
+        }
+        val ok = am.setCommunicationDevice(target)
+        Log.d(TAG, "  setCommunicationDevice(type=${target.type}) -> $ok")
+    }
+
+    private fun clearMicRoute() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
+        (context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager)?.clearCommunicationDevice()
     }
 
     fun leaveVoice() {
@@ -131,6 +166,7 @@ class VoiceManager(
         Log.d(TAG, "cleanup()")
         eventJob?.cancel(); eventJob = null
         room = null
+        if (micOn) clearMicRoute()
         micOn = false
         onSpeakersChange(emptySet())
     }
