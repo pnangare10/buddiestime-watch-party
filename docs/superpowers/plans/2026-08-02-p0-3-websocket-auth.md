@@ -423,3 +423,45 @@ Steps A and B are separate commits and separate deploys by construction.
 | "A race in `redeemInvite` makes `getRoom` return null, letting a guest in via passthrough"     | `createRoom` writes the room record before any invite exists ([pairing.js:30](../../../server/pairing.js#L30)); `redeemInvite` only mutates `partnerDeviceId`. `getRoom` never returns null for a real room. The genuine hazard is the opposite — a _stale cache_ rejecting a fresh partner — which §2 already invalidates and test 14 pins |
 | "Existing tests may create a paired room then WS-join it, breaking the passthrough assumption" | Checked all 11 test files: the only `api/rooms` reference in a WS test is `GET /api/rooms/status` ([rooms.test.js:190](../../../server/test/rooms.test.js#L190)), a read. Zero churn                                                                                                                                                        |
 | "Cache stampede at TTL boundaries with 100+ concurrent sessions"                               | Two-person app; the cache holds one entry per active room. Not a real load profile                                                                                                                                                                                                                                                          |
+
+---
+
+## 9. Execution notes — what the plan did not predict
+
+Steps A and B are built and verified. Deviations worth recording:
+
+- **`buildJoinPayload` had to move to the companion object.** The plan put it on the
+  instance; constructing a `WatchPartyManager` calls `Looper.getMainLooper()`, which
+  throws _"not mocked"_ in a plain JVM unit test. Same reason `SyncPolicy` is a
+  standalone object. Caught by the first Gradle run, not by review.
+
+- **Three assertions were wrong in my favour.** Tests expecting `active: false` on a
+  refused join actually get **404** — `/api/room/:id` has no `roomState` entry at all,
+  because a refused join creates nothing. Stricter than asserted; assertions tightened
+  to match rather than loosened.
+
+- **One test asserted the wrong path entirely.** "Reconnecting host keeps host" was
+  written as _terminate → wait → rejoin_, which is a **genuine** disconnect: the guest
+  is promoted and the returning host correctly comes back a guest (that case is
+  `host-continuity.test.js`'s). Rewritten to the reconnect-eviction path — a new socket
+  claiming the same `clientId` while the old one is still registered — which is the one
+  the await actually sits in front of.
+
+- **Port collision, and a latent one in the existing suite.** `ws-auth.test.js`
+  initially reused 8151–8154 from `host-continuity.test.js`. Because test files run in
+  parallel processes, the second server hit `EADDRINUSE` while `waitForHealth` still
+  got its 200 _from the other file's server_ — producing a test that asserted
+  `mode: enforce` against a server started with `observe`. Moved to 8181–8196.
+  **Three pre-existing files still collide** (8093/8094 in `rooms` + `sync-state`,
+  8095 in `routes` + `sync-state`) and have been green by luck; flagged separately.
+  Written up as L038 in the vault.
+
+- **Red-first was verified by reverting the source, not by assertion.** With
+  `server.js` / `validate.js` / `pairing.js` stashed, the four decisive tests
+  (stranger refused, no-deviceId refused, non-member nudge, double join) all fail;
+  with the fix in place, all pass.
+
+**Final state:** server `107/107`, Android `57/57` across 10 suites.
+Server committed as `037162c` in **observe** mode. The Android change is complete and
+verified but deliberately **uncommitted** — `MainActivity.kt` and `WatchPartyManager.kt`
+also carry pre-existing uncommitted work, and committing would sweep it.
