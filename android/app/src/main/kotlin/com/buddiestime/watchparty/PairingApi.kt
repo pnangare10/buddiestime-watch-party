@@ -91,7 +91,12 @@ class PairingApi(private val baseHttpUrl: String) {
                 val raw = response.body?.string()
                 Log.d(TAG, "createDevice → ${response.code} $raw")
                 val json = try { raw?.let { JSONObject(it) } } catch (e: Exception) { null }
-                cb(json?.optString("deviceId"))
+                if (!response.isSuccessful) {
+                    cb(null)
+                    return
+                }
+                val deviceId = json?.optString("deviceId")
+                cb(deviceId.takeUnless { it.isNullOrEmpty() })
             }
         })
     }
@@ -143,7 +148,7 @@ class PairingApi(private val baseHttpUrl: String) {
                     cb(null, reason ?: "http-${response.code}")
                     return
                 }
-                val room = try { parseRoomView(raw) } catch (e: Exception) {
+                val room = try { parseRoomEnvelope(raw) } catch (e: Exception) {
                     Log.w(TAG, "getRoom parse failed: ${e.message}")
                     cb(null, "parse-error")
                     return

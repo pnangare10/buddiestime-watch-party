@@ -29,6 +29,14 @@ private fun parseMessages(arr: JSONArray?): List<MessageEntry> {
     }
 }
 
+/**
+ * Unwraps the {"ok":true,"room":{…}} envelope that GET /api/rooms/{id} returns.
+ * parseRoomView below takes the *bare* room object — passing it the envelope
+ * throws on the missing top-level "theme" rather than reporting a useful error.
+ */
+fun parseRoomEnvelope(json: String): RoomView =
+    parseRoomView(JSONObject(json).getJSONObject("room").toString())
+
 fun parseRoomView(json: String): RoomView {
     val o = JSONObject(json)
     val t = o.getJSONObject("theme")

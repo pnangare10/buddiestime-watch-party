@@ -33,6 +33,73 @@ const STATIC_ROUTES = {
   "/install.html": path.join(__dirname, "..", "bookmarklet", "install.html"),
 };
 
+// ---------------------------------------------------------------- App Links
+// Android fetches /.well-known/assetlinks.json to decide whether this app may
+// handle https://<host>/pair/* itself. Without a *validating* file, Android 12+
+// does not merely deprioritise the app — it drops it from link handling entirely
+// (`pm get-app-links` reports the domain as "Disabled"), so every invite opens in
+// a browser instead. The manifest's android:autoVerify="true" is inert on its own;
+// this route is the other half of that pair.
+const APP_LINK_PACKAGE = "com.fluffles.watchparty"; // applicationId, not the namespace
+// Debug keystore (~/.android/debug.keystore) — every locally installed build is
+// signed with it, so verification works on emulators without a release key.
+const DEBUG_CERT_SHA256 =
+  "BA:B7:BA:89:D9:9D:E4:1D:E4:C5:D6:1E:12:20:92:EE:CF:67:F0:FA:9A:8A:B7:97:2E:0E:9F:6A:CD:6A:C3:40";
+
+/**
+ * Release builds are signed with a key this repo does not carry, and Play App
+ * Signing re-signs again with a third. Both must appear here or verification
+ * fails for store installs, so extra fingerprints come from the environment
+ * (comma-separated) rather than requiring a code change per key.
+ */
+function appLinkFingerprints() {
+  const extra = (process.env.ANDROID_CERT_SHA256 || "")
+    .split(",")
+    .map((s) => s.trim().toUpperCase())
+    .filter(Boolean);
+  return [...new Set([DEBUG_CERT_SHA256, ...extra])];
+}
+
+function assetLinksBody() {
+  return JSON.stringify(
+    [
+      {
+        relation: ["delegate_permission/common.handle_all_urls"],
+        target: {
+          namespace: "android_app",
+          package_name: APP_LINK_PACKAGE,
+          sha256_cert_fingerprints: appLinkFingerprints(),
+        },
+      },
+    ],
+    null,
+    2,
+  );
+}
+
+/**
+ * `intent://…#Intent;…;package=…;end` — an *explicit* package-targeted intent.
+ * A plain https link on the fallback page cannot work: the browser owns that
+ * navigation and only hands it over when domain verification already succeeded,
+ * which is exactly the case the fallback page exists to rescue. Naming the
+ * package bypasses link-handling policy entirely.
+ */
+function appIntentUrl(host, roomId, token) {
+  return (
+    `intent://${host}/pair/${encodeURIComponent(roomId)}/${encodeURIComponent(token)}` +
+    `#Intent;scheme=https;package=${APP_LINK_PACKAGE};end`
+  );
+}
+
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 function readJsonBody(req) {
   return new Promise((resolve, reject) => {
     let data = "";
@@ -243,12 +310,31 @@ async function handleHttp(req, res) {
     }
   }
 
+  // Must be served over https from the invite's own host, as application/json,
+  // with no redirect — Android's verifier rejects anything else.
+  if (url.pathname === "/.well-known/assetlinks.json") {
+    const body = assetLinksBody();
+    console.log(
+      `[HTTP]   → /.well-known/assetlinks.json → 200 (${appLinkFingerprints().length} fingerprint(s))`,
+    );
+    res.writeHead(200, {
+      "Content-Type": "application/json",
+      "Content-Length": Buffer.byteLength(body),
+    });
+    res.end(body);
+    return;
+  }
+
   {
     const m = url.pathname.match(/^\/pair\/([^/]+)\/([^/]+)$/);
     if (req.method === "GET" && m) {
       const roomId = decodeURIComponent(m[1]);
+      const token = decodeURIComponent(m[2]);
       console.log(`[HTTP]   → GET /pair/${roomId}/*** → fallback page`);
       const room = await pairingStore.getRoom(roomId).catch(() => null);
+      // Take the host from the request so the button works on whichever host the
+      // invite was actually minted for (Render, tailnet, localhost).
+      const host = req.headers.host || url.host;
       fs.readFile(
         path.join(__dirname, "pair-fallback.html"),
         "utf8",
@@ -265,7 +351,14 @@ async function handleHttp(req, res) {
             ? `"${room.roomName}"`
             : "a watch party";
           res.writeHead(200, { "Content-Type": "text/html" });
-          res.end(html.replace("{{ROOM_NAME}}", roomName));
+          res.end(
+            html
+              .replace("{{ROOM_NAME}}", escapeHtml(roomName))
+              .replace(
+                "{{INTENT_URL}}",
+                escapeHtml(appIntentUrl(host, roomId, token)),
+              ),
+          );
         },
       );
       return;
