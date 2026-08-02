@@ -1,7 +1,7 @@
 # P0-3 — WebSocket membership authentication (staged rollout)
 
 Branch: `fix/p0-websocket-auth` (off `fix/p0-security-reliability`)
-Status: **DRAFT — awaiting approval** · revised after critique (§8)
+Status: **Steps A+B built and verified** · step C (enforce) is the user's Render flip · see §9 for execution notes
 Related: [2026-08-02-p0-security-and-reliability.md](2026-08-02-p0-security-and-reliability.md) (Fixes 1–4 shipped; Fix 5 split out)
 
 ---
