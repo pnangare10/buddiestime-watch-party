@@ -33,11 +33,18 @@ async function startServer({ port = 8099, env = {} } = {}) {
   return {
     baseUrl,
     wsUrl: `ws://localhost:${port}`,
+    // Tests that deliberately provoke a server crash find the child already dead.
+    // Waiting on "exit" then hangs forever (the event fired long ago), stalling the
+    // whole file and reporting every test as "promise still pending" — which looks
+    // like a product failure but is purely a harness artefact. Check first.
     stop: () =>
       new Promise((r) => {
+        if (child.exitCode !== null || child.signalCode !== null) return r();
         child.once("exit", () => r());
         child.kill("SIGKILL");
       }),
+    /** Has the server process died on its own? Crash tests assert this is false. */
+    crashed: () => child.exitCode !== null || child.signalCode !== null,
   };
 }
 
