@@ -70,6 +70,29 @@ object SyncPolicy {
     fun isSameContent(a: String, b: String): Boolean =
         normalizeUrl(a) == normalizeUrl(b)
 
+    /** The only schemes we will hand to WebView.loadUrl. */
+    private val NAVIGABLE_SCHEMES = setOf("http", "https")
+
+    /**
+     * Whether [raw] is safe to pass to `WebView.loadUrl`.
+     *
+     * `videoUrl` arrives over the WebSocket from another party member, and the socket
+     * is not authenticated — anyone who knows the room id can send one. A `javascript:`
+     * URL handed to loadUrl does not navigate: it executes in whatever page is currently
+     * loaded, which is the user's signed-in Hotstar/Netflix session, with the HwpBridge
+     * interface attached. `file:`/`content:` reach local app storage and `intent:` reaches
+     * other apps, so only http(s) is allowed through.
+     *
+     * Uses [java.net.URI] rather than `android.net.Uri` so this stays a plain JVM unit
+     * test with no Robolectric — `android.net.Uri.parse` is stubbed in unit tests and
+     * would silently return null here.
+     */
+    fun isNavigable(raw: String): Boolean = try {
+        URI(raw.trim()).scheme?.lowercase() in NAVIGABLE_SCHEMES
+    } catch (e: Exception) {
+        false
+    }
+
     /**
      * Where the host's video is *now*, given a sample that is [ageMs] old.
      *
@@ -97,6 +120,10 @@ object SyncPolicy {
         nowMs: Long,
     ): Boolean {
         if (hostUrl.isBlank()) return false
+        // Checked before anything else: normalizeUrl() returns a non-http string
+        // unchanged (uri.host is null for `javascript:`), so it never matches the
+        // guest's URL and every other guard below would wave it through to loadUrl.
+        if (!isNavigable(hostUrl)) return false
         if (guestUrl.isNotBlank() && isSameContent(hostUrl, guestUrl)) return false
         if (lastReloadAtMs > 0L && nowMs - lastReloadAtMs < RELOAD_COOLDOWN_MS) return false
         return true
