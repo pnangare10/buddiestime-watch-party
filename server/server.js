@@ -12,6 +12,7 @@ const pairingStore =
     : require("./store");
 const pairing = require("./pairing");
 const push = require("./push");
+const { parseStateUpdate, parseJoinContent, fmt } = require("./validate");
 
 const PORT = process.env.PORT || 8080;
 const MAX_NAME_LEN = 32;
@@ -468,6 +469,17 @@ process.on("unhandledRejection", (err) => {
   console.error("[SERVER] unhandled rejection —", err);
 });
 
+// The WS message handler has its own try/catch, so client input can no longer reach
+// here. Anything that still does is genuinely unexpected, and continuing to serve from
+// unknown state is worse than a clean restart — log loudly and let the platform respawn.
+process.on("uncaughtException", (err) => {
+  console.error(
+    "[SERVER] FATAL uncaught exception — exiting for a clean restart:",
+    err,
+  );
+  process.exit(1);
+});
+
 const wss = new WebSocketServer({ server: httpServer });
 const keepAlive = setInterval(
   () => sweepClients(wss.clients),
@@ -540,7 +552,7 @@ function logState(roomId, label) {
     ? [...room.values()].map((c) => `${c.role}:${c.id}(${c.name})`).join(", ")
     : "none";
   console.log(
-    `[${roomId}] ${label} | time=${state.time?.toFixed(2)}s paused=${state.paused} url=${state.videoUrl} members=[${members}]`,
+    `[${roomId}] ${label} | time=${fmt(state.time)}s paused=${state.paused} url=${state.videoUrl} members=[${members}]`,
   );
 }
 
@@ -727,7 +739,22 @@ wss.on("connection", (ws, req) => {
   let roomId = null;
   let clientId = null;
 
+  // A throw anywhere in message handling used to reach uncaughtException and take
+  // the whole process down — one state-update with a string `time` disconnected
+  // every room on the instance. Validation now prevents the known cases; this catch
+  // makes an unknown one cost a single dropped message instead of the server.
   ws.on("message", (raw) => {
+    try {
+      handleWsMessage(raw);
+    } catch (err) {
+      console.error(
+        `[${roomId || "?"}] WS handler threw for ${clientId || ip}:`,
+        err,
+      );
+    }
+  });
+
+  function handleWsMessage(raw) {
     let msg;
     try {
       msg = JSON.parse(raw);
@@ -745,7 +772,12 @@ wss.on("connection", (ws, req) => {
     if (msg.type === "join") {
       const incomingRoom = msg.roomId;
       const incomingId = msg.clientId || Math.random().toString(36).slice(2);
-      const { platform, videoUrl } = msg;
+      // Never read platform/videoUrl off msg past this point. These seed a new
+      // room's state, which is then served to every later joiner in their `joined`
+      // payload and through GET /api/room/:id — so an unvalidated URL planted here
+      // reaches an Android guest's WebView.loadUrl without the sender ever being
+      // host or sending a single state-update.
+      const { platform, videoUrl } = parseJoinContent(msg);
       const name = sanitizeName(msg.displayName);
 
       console.log(
@@ -800,11 +832,18 @@ wss.on("connection", (ws, req) => {
 
       cancelRoomExpiry(roomId);
 
+      let priorRole = null;
       if (byId.has(clientId)) {
         console.warn(
           `[${roomId}] clientId=${clientId} already present — closing stale socket first`,
         );
         const stale = byId.get(clientId);
+        // Capture the role BEFORE the eviction below deletes it. Deriving role from
+        // room.size afterwards demoted a reconnecting host to guest (the eviction had
+        // already shrunk the room), while the stale socket's close handler skipped
+        // promotion because its `leaving` lookup was empty — leaving the room with
+        // zero hosts and playback sync permanently dead.
+        priorRole = room.get(stale)?.role ?? null;
         // Evict BEFORE closing. The stale socket's close handler announces a
         // departure, and it must not do so for a client that is merely
         // reconnecting — dropping it from the room first is what makes its
@@ -815,13 +854,28 @@ wss.on("connection", (ws, req) => {
         } catch {}
       }
 
-      const role = room.size === 0 ? "host" : "guest";
+      // Why restoring priorRole cannot produce two hosts: a socket leaves a room by
+      // exactly one of two paths, and each destroys what the other needs.
+      //   A. reconnect eviction (here) — leaves byId pointing at the NEW socket, so
+      //      the stale close handler finds `leaving` undefined and never promotes.
+      //   B. genuine disconnect (close handler) — deletes the byId entry AND promotes,
+      //      so a later rejoin finds no stale entry and priorRole is null.
+      // They cannot interleave: stale.close() only queues the close event, and Node's
+      // event loop is single-threaded, so this handler always runs to completion first.
+      const role = priorRole ?? (room.size === 0 ? "host" : "guest");
       console.log(
-        `[${roomId}] assigning role=${role} (room size before insert = ${room.size})`,
+        `[${roomId}] assigning role=${role}${priorRole ? " (restored on reconnect)" : ""} (room size before insert = ${room.size})`,
       );
 
       room.set(ws, { role, id: clientId, name, voice: false });
       byId.set(clientId, ws);
+
+      // Insurance against any path not covered by the two above. A room with no host
+      // accepts no state-update at all, so it is worth an O(members) check per join.
+      if (![...room.values()].some((c) => c.role === "host")) {
+        console.warn(`[${roomId}] no host after join — promoting`);
+        promoteNewHost(roomId);
+      }
 
       const state = roomState.get(roomId) || {};
       const response = {
@@ -882,15 +936,27 @@ wss.on("connection", (ws, req) => {
         return;
       }
 
+      // Validate before touching room state. A malformed value written here reaches
+      // the log line below, projectedTime()'s arithmetic, and every guest's player.
+      const update = parseStateUpdate(msg);
+      if (!update.ok) {
+        console.warn(
+          `[${roomId}] state-update from ${clientId} REJECTED (${update.reason}) — ignoring`,
+        );
+        return;
+      }
+
       const wasPaused = state.paused;
       Object.assign(state, {
-        time: msg.time,
-        paused: msg.paused,
-        videoUrl: msg.videoUrl,
+        time: update.time,
+        paused: update.paused,
+        // undefined means the client sent nothing usable — keep what the room had
+        // rather than blanking a good URL because one heartbeat was malformed.
+        videoUrl: update.videoUrl ?? state.videoUrl,
         updatedAt: Date.now(),
       });
 
-      if (wasPaused && msg.paused === false) {
+      if (wasPaused && update.paused === false) {
         pairing
           .triggerNudge(pairingStore, push.sendNudge, {
             roomId,
@@ -910,7 +976,7 @@ wss.on("connection", (ws, req) => {
         (c) => c.role === "guest",
       ).length;
       console.log(
-        `[${roomId}] HOST state-update: time=${msg.time?.toFixed(2)}s paused=${msg.paused} videoUrl=${msg.videoUrl} → broadcasting to ${guestCount} guest(s)`,
+        `[${roomId}] HOST state-update: time=${fmt(state.time)}s paused=${state.paused} videoUrl=${state.videoUrl} → broadcasting to ${guestCount} guest(s)`,
       );
       logState(roomId, "room state now");
 
@@ -1060,7 +1126,7 @@ wss.on("connection", (ws, req) => {
     console.log(
       `[${roomId}] unknown message type="${msg.type}" from clientId=${clientId}`,
     );
-  });
+  }
 
   ws.on("close", (code, reason) => {
     console.log(
