@@ -33,7 +33,14 @@
             android:name=".PairingRedeemActivity"
             android:configChanges="orientation|screenSize|keyboardHidden|screenLayout"
             android:exported="true">
-            <intent-filter android:autoVerify="false">
+            <!--
+                autoVerify is required, not optional: on Android 12+ an unverified
+                https filter is dropped from link handling altogether, so invites
+                open in a browser and the app is never offered. Verification checks
+                https://<pairing_host>/.well-known/assetlinks.json — see the matching
+                route in server/server.js; the two must ship together.
+            -->
+            <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />

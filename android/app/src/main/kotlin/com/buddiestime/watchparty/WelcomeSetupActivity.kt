@@ -143,22 +143,13 @@ class WelcomeSetupActivity : AppCompatActivity() {
 
     private fun mintInviteAndShare(roomId: String, deviceId: String, pin: String?) {
         setBusy(true)
-        api.mintInvite(roomId, deviceId, pin) { token, error ->
+        InviteSharing.mintAndShare(this, api, roomId, deviceId, pin) { error ->
             runOnUiThread {
                 setBusy(false)
-                if (token == null) {
+                if (error != null) {
                     Log.w(TAG, "mintInvite failed: $error")
                     Toast.makeText(this, "Room created, but the invite link failed — you can re-invite from Settings", Toast.LENGTH_LONG).show()
-                    goToHome()
-                    return@runOnUiThread
                 }
-                val link = "${Config.baseHttpUrl()}/pair/$roomId/$token"
-                Log.d(TAG, "mintInvite → link=$link")
-                val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                    type = "text/plain"
-                    putExtra(Intent.EXTRA_TEXT, "Join our watch party 💗 $link")
-                }
-                startActivity(Intent.createChooser(shareIntent, "Send the invite"))
                 goToHome()
             }
         }

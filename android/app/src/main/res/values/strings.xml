@@ -2,5 +2,5 @@
 <resources>
     <string name="app_name">Fluffles</string>
     <!-- Host used for the pairing deep-link intent filter — keep in sync with Config.SERVER_URL's host. -->
-    <string name="pairing_host">buddy.taildf8a58.ts.net</string>
+    <string name="pairing_host">buddiestime-watch-party-2elk.onrender.com</string>
 </resources>
