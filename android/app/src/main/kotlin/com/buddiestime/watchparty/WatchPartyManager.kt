@@ -49,14 +49,30 @@ class WatchPartyManager(
     private var lastParams: JoinParams? = null
     private val healthClient = OkHttpClient.Builder().connectTimeout(10, TimeUnit.SECONDS).readTimeout(10, TimeUnit.SECONDS).build()
 
-    data class JoinParams(val serverUrl: String, val roomId: String, val platform: String, val videoUrl: String, val displayName: String, val clientId: String)
+    data class JoinParams(
+        val serverUrl: String,
+        val roomId: String,
+        val platform: String,
+        val videoUrl: String,
+        val displayName: String,
+        val clientId: String,
+        /**
+         * Proof that this device belongs to the room. Distinct from [clientId], which
+         * we make up locally and the server never verifies: roomId alone used to be
+         * the whole credential, and roomId travels in every invite link. Null only for
+         * a device that never registered — the server logs that and (once
+         * WS_AUTH_MODE=enforce) refuses it.
+         */
+        val deviceId: String?,
+    )
 
-    fun connect(serverUrl: String, roomId: String, platform: String, videoUrl: String, displayName: String) {
-        Log.d(TAG, "connect() serverUrl=$serverUrl roomId=$roomId platform=$platform videoUrl=$videoUrl displayName=\"$displayName\"")
+    fun connect(serverUrl: String, roomId: String, platform: String, videoUrl: String, displayName: String, deviceId: String?) {
+        Log.d(TAG, "connect() serverUrl=$serverUrl roomId=$roomId platform=$platform videoUrl=$videoUrl displayName=\"$displayName\" deviceId=${deviceId ?: "(none)"}")
         if (displayName.isBlank()) { Log.w(TAG, "connect aborted — displayName blank"); post { onStatusChange("pick your name first") }; return }
+        if (deviceId.isNullOrBlank()) Log.w(TAG, "connect() with NO deviceId — this device will be refused once the server enforces membership")
 
         val clientId = lastParams?.clientId ?: ("android-" + (Math.random() * 999999).toInt())
-        lastParams = JoinParams(serverUrl, roomId, platform, videoUrl, displayName, clientId)
+        lastParams = JoinParams(serverUrl, roomId, platform, videoUrl, displayName, clientId, deviceId)
         intentionalClose = false
         val gen = ++connectionGen   // supersede any in-flight wake/reconnect loop
         openWithWake(lastParams!!, gen)
@@ -89,6 +105,27 @@ class WatchPartyManager(
         return false
     }
 
+    companion object {
+        /**
+         * The `join` frame. Extracted from the onOpen lambda so the wire shape is
+         * directly unit-testable — the server refuses a join whose deviceId is missing
+         * or malformed, so "did we actually put it on the frame" is worth asserting
+         * rather than discovering on a locked-out phone.
+         *
+         * On the companion rather than the instance because constructing a
+         * WatchPartyManager needs `Looper.getMainLooper()`, which throws "not mocked"
+         * in a plain JVM unit test. Same reason SyncPolicy is a standalone object.
+         *
+         * The key is omitted entirely when there is no deviceId; sending the string
+         * "null" would be an unparseable identity rather than an absent one.
+         */
+        internal fun buildJoinPayload(p: JoinParams): JSONObject = JSONObject().apply {
+            put("type", "join"); put("roomId", p.roomId); put("clientId", p.clientId)
+            put("platform", p.platform); put("videoUrl", p.videoUrl); put("displayName", p.displayName)
+            if (!p.deviceId.isNullOrBlank()) put("deviceId", p.deviceId)
+        }
+    }
+
     private fun openSocket(p: JoinParams, gen: Int) {
         ws?.let { Log.d(TAG, "closing existing WS before reconnect"); it.close(1000, "Reconnecting") }
         val request = Request.Builder().url(p.serverUrl).build()
@@ -96,10 +133,7 @@ class WatchPartyManager(
         ws = client.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
                 reconnectAttempt = 0
-                val joinPayload = JSONObject().apply {
-                    put("type", "join"); put("roomId", p.roomId); put("clientId", p.clientId)
-                    put("platform", p.platform); put("videoUrl", p.videoUrl); put("displayName", p.displayName)
-                }
+                val joinPayload = buildJoinPayload(p)
                 Log.d(TAG, "WS onOpen — sending join: $joinPayload")
                 webSocket.send(joinPayload.toString())
                 post { onStatusChange("finding you… 💫") }

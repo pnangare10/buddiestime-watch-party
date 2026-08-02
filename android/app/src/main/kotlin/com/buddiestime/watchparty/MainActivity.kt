@@ -605,7 +605,15 @@ class MainActivity : AppCompatActivity() {
             },
             onServerError = { reason, detail ->
                 Log.w(TAG, "onServerError reason=$reason detail=$detail")
-                Toast.makeText(this, "Server: $reason — $detail", Toast.LENGTH_LONG).show()
+                // A membership refusal is the one error a user can actually act on, and
+                // the one they will hit if this build predates the deviceId join frame.
+                // "Server: not-a-room-member — …" tells them nothing; say what to do.
+                val friendly = when (reason) {
+                    "not-a-room-member" -> "This phone isn't paired to your room yet 💔 Open your invite link again to reconnect it."
+                    "store-unavailable" -> "Couldn't check your room just now — try again in a moment 💫"
+                    else -> "Server: $reason — $detail"
+                }
+                Toast.makeText(this, friendly, Toast.LENGTH_LONG).show()
             },
             onVoiceToken = { token, url, lkRoom ->
                 Log.d(TAG, "onVoiceToken lkRoom=$lkRoom → joining LK")
@@ -626,7 +634,12 @@ class MainActivity : AppCompatActivity() {
         )
 
         val platform = currentService?.name ?: "android"
-        manager?.connect(serverUrl, room, platform, effectiveVideoUrl, name)
+        // deviceId is what proves to the server that this device belongs to the room —
+        // the WebSocket used to accept anyone who knew the roomId, and roomId is in
+        // every invite link.
+        val deviceId = DeviceIdentity(prefs).localDeviceId()
+        if (deviceId.isNullOrBlank()) Log.w(TAG, "connectToParty: no deviceId stored — this device is not registered")
+        manager?.connect(serverUrl, room, platform, effectiveVideoUrl, name, deviceId)
         tvStatus.text = "finding you… 💫"
         tvStatus.visibility = View.VISIBLE
     }
