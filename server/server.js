@@ -12,7 +12,13 @@ const pairingStore =
     : require("./store");
 const pairing = require("./pairing");
 const push = require("./push");
-const { parseStateUpdate, parseJoinContent, fmt } = require("./validate");
+const {
+  parseStateUpdate,
+  parseJoinContent,
+  parseDeviceId,
+  fmt,
+} = require("./validate");
+const wsauth = require("./wsauth");
 
 const PORT = process.env.PORT || 8080;
 const MAX_NAME_LEN = 32;
@@ -23,6 +29,19 @@ const ROOM_GRACE_MS = Number(process.env.ROOM_GRACE_MS) || 300000;
 // A playing room's stored time goes stale the moment we store it. Cap how far we
 // extrapolate it: past this, the host is gone rather than genuinely that far ahead.
 const MAX_PROJECTION_SEC = 30;
+
+// WebSocket join authorisation (P0-3), rolled out in stages via env only:
+//   observe (default) — check, log the verdict, always allow. Safe to deploy ahead
+//                       of the client that sends deviceId.
+//   enforce           — refuse non-members.
+//   off               — skip the check (dev escape hatch, e.g. to use room.html
+//                       against a paired room).
+// Flipping to enforce is an env change on Render, not a redeploy, so rollback is
+// one variable. See docs/superpowers/plans/2026-08-02-p0-3-websocket-auth.md §5.
+const WS_AUTH_MODE = process.env.WS_AUTH_MODE || "observe";
+// What to do when Upstash itself is unreachable. `open` keeps a store outage from
+// bricking the app — it degrades to the pre-P0-3 security level, never below it.
+const WS_AUTH_FAIL = process.env.WS_AUTH_FAIL || "open";
 
 const rooms = new Map(); // roomId → Map<ws, { role, id, name, voice: boolean }>
 const clientsById = new Map(); // roomId → Map<clientId, ws>
@@ -192,6 +211,10 @@ async function handleHttp(req, res) {
         deviceId: body.deviceId,
         pin: body.pin,
       });
+      // The only place room membership ever changes. Without this the new partner
+      // is a 'non-member' to the WebSocket layer until the cache TTL lapses — i.e.
+      // rejected for up to a minute immediately after successfully pairing.
+      if (result.ok) wsauth.invalidate(roomId);
       sendPairingResult(res, result);
       return;
     }
@@ -364,6 +387,17 @@ async function handleHttp(req, res) {
       );
       return;
     }
+  }
+
+  // Which authorisation mode is this instance actually running? The rollout gate
+  // between observe and enforce needs an answer that does not depend on catching
+  // the right log line on Render.
+  if (url.pathname === "/api/authmode") {
+    const body = JSON.stringify({ mode: WS_AUTH_MODE, fail: WS_AUTH_FAIL });
+    console.log(`[HTTP]   → /api/authmode → ${body}`);
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(body);
+    return;
   }
 
   if (url.pathname === "/health") {
@@ -738,6 +772,24 @@ wss.on("connection", (ws, req) => {
 
   let roomId = null;
   let clientId = null;
+  // True only while handleJoin is awaiting the membership check. Together with the
+  // `roomId !== null` test it enforces one socket → one room for the socket's whole
+  // lifetime. Two joins on one socket previously left it in BOTH rooms' maps, and
+  // the close handler only ever cleans up the room named by `roomId` above — so the
+  // first room kept a dead socket, never reached size 0, never expired, and reported
+  // a phantom live party through /api/room/:id. That predates this change (it
+  // reproduces on the fully synchronous handler); the guard is also what keeps the
+  // new await below from making it worse.
+  let joinInFlight = false;
+
+  /** ws.send that cannot throw — a peer may vanish between the check and the write. */
+  function sendSafe(payload) {
+    try {
+      ws.send(JSON.stringify(payload));
+    } catch (e) {
+      console.warn(`[${roomId || "?"}] send failed: ${e.message}`);
+    }
+  }
 
   // A throw anywhere in message handling used to reach uncaughtException and take
   // the whole process down — one state-update with a string `time` disconnected
@@ -770,136 +822,12 @@ wss.on("connection", (ws, req) => {
 
     // ── join ──────────────────────────────────────────────────────────────
     if (msg.type === "join") {
-      const incomingRoom = msg.roomId;
-      const incomingId = msg.clientId || Math.random().toString(36).slice(2);
-      // Never read platform/videoUrl off msg past this point. These seed a new
-      // room's state, which is then served to every later joiner in their `joined`
-      // payload and through GET /api/room/:id — so an unvalidated URL planted here
-      // reaches an Android guest's WebView.loadUrl without the sender ever being
-      // host or sending a single state-update.
-      const { platform, videoUrl } = parseJoinContent(msg);
-      const name = sanitizeName(msg.displayName);
-
-      console.log(
-        `[${incomingRoom}] JOIN request clientId=${incomingId} platform=${platform} videoUrl=${videoUrl} rawName="${msg.displayName}"`,
+      // The only asynchronous path — it consults the pairing store. Split into its
+      // own function so every other message type keeps its exact synchronous
+      // semantics inside the try/catch above, unchanged by P0-3.
+      handleJoin(msg).catch((err) =>
+        console.error(`[${msg.roomId || "?"}] join handler threw:`, err),
       );
-
-      if (!name) {
-        console.warn(
-          `[${incomingRoom}] JOIN REJECTED for clientId=${incomingId} — invalid displayName`,
-        );
-        try {
-          ws.send(
-            JSON.stringify({
-              type: "error",
-              reason: "name-required",
-              detail: `displayName required (1-${MAX_NAME_LEN} chars, after trim)`,
-            }),
-          );
-        } catch (e) {
-          console.warn(
-            `[${incomingRoom}] failed to send reject reason: ${e.message}`,
-          );
-        }
-        ws.close(1008, "name-required");
-        return;
-      }
-
-      roomId = incomingRoom;
-      clientId = incomingId;
-
-      const roomExisted = rooms.has(roomId);
-      if (!roomExisted) {
-        console.log(`[${roomId}] room does not exist yet → CREATE`);
-        rooms.set(roomId, new Map());
-        clientsById.set(roomId, new Map());
-        roomState.set(roomId, {
-          platform,
-          videoUrl,
-          time: 0,
-          paused: true,
-          updatedAt: Date.now(),
-        });
-        console.log(
-          `[${roomId}] room CREATED — initial state: platform=${platform} videoUrl=${videoUrl}`,
-        );
-      } else {
-        console.log(`[${roomId}] room exists → joining`);
-      }
-
-      const room = rooms.get(roomId);
-      const byId = clientsById.get(roomId);
-
-      cancelRoomExpiry(roomId);
-
-      let priorRole = null;
-      if (byId.has(clientId)) {
-        console.warn(
-          `[${roomId}] clientId=${clientId} already present — closing stale socket first`,
-        );
-        const stale = byId.get(clientId);
-        // Capture the role BEFORE the eviction below deletes it. Deriving role from
-        // room.size afterwards demoted a reconnecting host to guest (the eviction had
-        // already shrunk the room), while the stale socket's close handler skipped
-        // promotion because its `leaving` lookup was empty — leaving the room with
-        // zero hosts and playback sync permanently dead.
-        priorRole = room.get(stale)?.role ?? null;
-        // Evict BEFORE closing. The stale socket's close handler announces a
-        // departure, and it must not do so for a client that is merely
-        // reconnecting — dropping it from the room first is what makes its
-        // `leaving` lookup come back empty and stay quiet.
-        room.delete(stale);
-        try {
-          stale.close(1000, "replaced");
-        } catch {}
-      }
-
-      // Why restoring priorRole cannot produce two hosts: a socket leaves a room by
-      // exactly one of two paths, and each destroys what the other needs.
-      //   A. reconnect eviction (here) — leaves byId pointing at the NEW socket, so
-      //      the stale close handler finds `leaving` undefined and never promotes.
-      //   B. genuine disconnect (close handler) — deletes the byId entry AND promotes,
-      //      so a later rejoin finds no stale entry and priorRole is null.
-      // They cannot interleave: stale.close() only queues the close event, and Node's
-      // event loop is single-threaded, so this handler always runs to completion first.
-      const role = priorRole ?? (room.size === 0 ? "host" : "guest");
-      console.log(
-        `[${roomId}] assigning role=${role}${priorRole ? " (restored on reconnect)" : ""} (room size before insert = ${room.size})`,
-      );
-
-      room.set(ws, { role, id: clientId, name, voice: false });
-      byId.set(clientId, ws);
-
-      // Insurance against any path not covered by the two above. A room with no host
-      // accepts no state-update at all, so it is worth an O(members) check per join.
-      if (![...room.values()].some((c) => c.role === "host")) {
-        console.warn(`[${roomId}] no host after join — promoting`);
-        promoteNewHost(roomId);
-      }
-
-      const state = roomState.get(roomId) || {};
-      const response = {
-        type: "joined",
-        role,
-        clientId,
-        name,
-        platform: state.platform,
-        videoUrl: state.videoUrl,
-        // Aged forward: state.time is a snapshot from the host's last push, which
-        // may be up to a heartbeat old. Handing it over raw starts every joiner
-        // behind by exactly that much, and a hard seek can never claw it back.
-        time: projectedTime(state),
-        paused: state.paused,
-        existed: roomExisted,
-      };
-      console.log(
-        `[${roomId}] → sending joined payload:`,
-        JSON.stringify(response),
-      );
-      ws.send(JSON.stringify(response));
-
-      logState(roomId, "room state after join");
-      broadcastParticipants(roomId, "member-joined");
       return;
     }
 
@@ -956,11 +884,15 @@ wss.on("connection", (ws, req) => {
         updatedAt: Date.now(),
       });
 
+      // senderInfo.deviceId, not clientId: clientId is a client-chosen string
+      // (`android-1234`) that never matches a real device, so this call always
+      // looked like a non-member. Harmless before triggerNudge had a membership
+      // guard — it just picked the wrong recipient — but a guaranteed rejection now.
       if (wasPaused && update.paused === false) {
         pairing
           .triggerNudge(pairingStore, push.sendNudge, {
             roomId,
-            triggeringDeviceId: clientId,
+            triggeringDeviceId: senderInfo.deviceId,
           })
           .then((r) =>
             console.log(
@@ -1126,6 +1058,216 @@ wss.on("connection", (ws, req) => {
     console.log(
       `[${roomId}] unknown message type="${msg.type}" from clientId=${clientId}`,
     );
+  }
+
+  /**
+   * Join, in a strict order that keeps the one `await` out of the critical section.
+   *
+   * The room bookkeeping below (evict stale → restore role → insert → promote) is
+   * the same code that fixed the hostless-room bug, and its correctness argument
+   * depends on running to completion in a single uninterrupted turn. So:
+   *
+   *   1–3  synchronous: parse, refuse a second join, mark the check in flight
+   *   4    the ONLY await — consult the pairing store
+   *   5–7  synchronous: clear the flag, drop a socket that died meanwhile, refuse a
+   *        non-member WITHOUT touching any shared state
+   *   8    the critical section, byte-for-byte as before, no await inside
+   *
+   * Steps 1–7 mutate nothing shared, so nothing they observed can have gone stale
+   * by step 8. Note that `roomId`/`clientId` stay null throughout 1–7: a non-join
+   * frame arriving during the await is dropped by the guard in handleWsMessage.
+   * That is a real behaviour change from the old synchronous join, but harmless —
+   * every client sends its first frame only after receiving `joined`.
+   */
+  async function handleJoin(msg) {
+    const incomingRoom = msg.roomId;
+    const incomingId = msg.clientId || Math.random().toString(36).slice(2);
+    // Never read platform/videoUrl off msg past this point. These seed a new
+    // room's state, which is then served to every later joiner in their `joined`
+    // payload and through GET /api/room/:id — so an unvalidated URL planted here
+    // reaches an Android guest's WebView.loadUrl without the sender ever being
+    // host or sending a single state-update.
+    const { platform, videoUrl } = parseJoinContent(msg);
+    const deviceId = parseDeviceId(msg);
+    const name = sanitizeName(msg.displayName);
+
+    console.log(
+      `[${incomingRoom}] JOIN request clientId=${incomingId} deviceId=${deviceId || "(absent)"} platform=${platform} videoUrl=${videoUrl} rawName="${msg.displayName}"`,
+    );
+
+    // One socket, one room, for its lifetime. See the joinInFlight comment above.
+    if (joinInFlight || roomId !== null) {
+      console.warn(
+        `[${incomingRoom}] REFUSED second join — socket is already in ${roomId || "a join in flight"}`,
+      );
+      sendSafe({
+        type: "error",
+        reason: "already-joined",
+        detail: "this connection has already joined a room",
+      });
+      return;
+    }
+
+    if (!name) {
+      console.warn(
+        `[${incomingRoom}] JOIN REJECTED for clientId=${incomingId} — invalid displayName`,
+      );
+      sendSafe({
+        type: "error",
+        reason: "name-required",
+        detail: `displayName required (1-${MAX_NAME_LEN} chars, after trim)`,
+      });
+      ws.close(1008, "name-required");
+      return;
+    }
+
+    joinInFlight = true;
+    let check;
+    try {
+      check = await wsauth.checkMembership(
+        pairingStore,
+        incomingRoom,
+        deviceId,
+      );
+    } finally {
+      joinInFlight = false;
+    }
+    const gate = wsauth.decide(check.verdict, WS_AUTH_MODE, WS_AUTH_FAIL);
+
+    // The rollout signal. Every field matters: `verdict` distinguishes a real
+    // non-member from an ad-hoc room or a store outage, and `allowed` is what has
+    // to read false-for-nobody before WS_AUTH_MODE is flipped to enforce.
+    console.log(
+      `[WS-AUTH] room=${incomingRoom} device=${deviceId || "absent"} ` +
+        `verdict=${check.verdict}${check.stale ? "(stale)" : ""} cached=${!!check.cached} ` +
+        `mode=${WS_AUTH_MODE} fail=${WS_AUTH_FAIL} allowed=${gate.allow}`,
+    );
+
+    // The socket may have gone away while we were talking to Upstash. Inserting a
+    // dead socket into the room map would leave a member that never leaves.
+    if (ws.readyState !== 1) {
+      console.warn(
+        `[${incomingRoom}] socket closed during the membership check — abandoning join`,
+      );
+      return;
+    }
+
+    if (!gate.allow) {
+      console.warn(
+        `[${incomingRoom}] JOIN REJECTED for clientId=${incomingId} — ${gate.reason}`,
+      );
+      sendSafe({
+        type: "error",
+        reason: gate.reason,
+        detail:
+          gate.reason === "not-a-room-member"
+            ? "this device is not paired to that room"
+            : "room membership could not be verified right now",
+      });
+      ws.close(1008, gate.reason);
+      return;
+    }
+
+    // ══ critical section — synchronous from here to the end, no await ══════════
+    roomId = incomingRoom;
+    clientId = incomingId;
+
+    const roomExisted = rooms.has(roomId);
+    if (!roomExisted) {
+      console.log(`[${roomId}] room does not exist yet → CREATE`);
+      rooms.set(roomId, new Map());
+      clientsById.set(roomId, new Map());
+      roomState.set(roomId, {
+        platform,
+        videoUrl,
+        time: 0,
+        paused: true,
+        updatedAt: Date.now(),
+      });
+      console.log(
+        `[${roomId}] room CREATED — initial state: platform=${platform} videoUrl=${videoUrl}`,
+      );
+    } else {
+      console.log(`[${roomId}] room exists → joining`);
+    }
+
+    const room = rooms.get(roomId);
+    const byId = clientsById.get(roomId);
+
+    cancelRoomExpiry(roomId);
+
+    let priorRole = null;
+    if (byId.has(clientId)) {
+      console.warn(
+        `[${roomId}] clientId=${clientId} already present — closing stale socket first`,
+      );
+      const stale = byId.get(clientId);
+      // Capture the role BEFORE the eviction below deletes it. Deriving role from
+      // room.size afterwards demoted a reconnecting host to guest (the eviction had
+      // already shrunk the room), while the stale socket's close handler skipped
+      // promotion because its `leaving` lookup was empty — leaving the room with
+      // zero hosts and playback sync permanently dead.
+      priorRole = room.get(stale)?.role ?? null;
+      // Evict BEFORE closing. The stale socket's close handler announces a
+      // departure, and it must not do so for a client that is merely
+      // reconnecting — dropping it from the room first is what makes its
+      // `leaving` lookup come back empty and stay quiet.
+      room.delete(stale);
+      try {
+        stale.close(1000, "replaced");
+      } catch {}
+    }
+
+    // Why restoring priorRole cannot produce two hosts: a socket leaves a room by
+    // exactly one of two paths, and each destroys what the other needs.
+    //   A. reconnect eviction (here) — leaves byId pointing at the NEW socket, so
+    //      the stale close handler finds `leaving` undefined and never promotes.
+    //   B. genuine disconnect (close handler) — deletes the byId entry AND promotes,
+    //      so a later rejoin finds no stale entry and priorRole is null.
+    // They cannot interleave: stale.close() only queues the close event, and Node's
+    // event loop is single-threaded, so this block always runs to completion first.
+    // That still holds with the await above, because the await is behind us.
+    const role = priorRole ?? (room.size === 0 ? "host" : "guest");
+    console.log(
+      `[${roomId}] assigning role=${role}${priorRole ? " (restored on reconnect)" : ""} (room size before insert = ${room.size})`,
+    );
+
+    // deviceId rides along on the member record so later handlers have a verified
+    // identity to work with — the auto-nudge below used to pass `clientId`, which is
+    // client-chosen and never matches a real device.
+    room.set(ws, { role, id: clientId, name, voice: false, deviceId });
+    byId.set(clientId, ws);
+
+    // Insurance against any path not covered by the two above. A room with no host
+    // accepts no state-update at all, so it is worth an O(members) check per join.
+    if (![...room.values()].some((c) => c.role === "host")) {
+      console.warn(`[${roomId}] no host after join — promoting`);
+      promoteNewHost(roomId);
+    }
+
+    const state = roomState.get(roomId) || {};
+    const response = {
+      type: "joined",
+      role,
+      clientId,
+      name,
+      platform: state.platform,
+      videoUrl: state.videoUrl,
+      // Aged forward: state.time is a snapshot from the host's last push, which
+      // may be up to a heartbeat old. Handing it over raw starts every joiner
+      // behind by exactly that much, and a hard seek can never claw it back.
+      time: projectedTime(state),
+      paused: state.paused,
+      existed: roomExisted,
+    };
+    console.log(
+      `[${roomId}] → sending joined payload:`,
+      JSON.stringify(response),
+    );
+    ws.send(JSON.stringify(response));
+
+    logState(roomId, "room state after join");
+    broadcastParticipants(roomId, "member-joined");
   }
 
   ws.on("close", (code, reason) => {

@@ -11,6 +11,10 @@ const MAX_PLATFORM_LEN = 32;
 // A video position beyond a week is not a real playback time; it is a client bug
 // or an attempt to poison the projection math in projectedTime().
 const MAX_TIME_SEC = 604800;
+// deviceIds are 32 hex chars (crypto.randomBytes(16) in pairing.js). The ceiling is
+// generous so a future format change does not silently lock everyone out, but bounded
+// so an unauthenticated client cannot push an arbitrary string into a log line or a Map key.
+const MAX_DEVICE_ID_LEN = 64;
 
 /**
  * Is this a URL we are willing to hand to Android's WebView.loadUrl?
@@ -80,6 +84,22 @@ function parseJoinContent(msg) {
   };
 }
 
+/**
+ * The claimed device identity on `join`, or null when absent/unusable.
+ *
+ * Returning null rather than the raw value is what lets wsauth treat "no identity"
+ * and "unparseable identity" the same way. It matters: a room with no partner yet
+ * stores `partnerDeviceId: null`, so letting a non-string through would risk a
+ * null-matches-null comparison making an anonymous client look like a member.
+ */
+function parseDeviceId(msg) {
+  const id = msg.deviceId;
+  if (typeof id !== "string") return null;
+  const trimmed = id.trim();
+  if (trimmed.length === 0 || trimmed.length > MAX_DEVICE_ID_LEN) return null;
+  return trimmed;
+}
+
 /** Format a number for a log line without ever being able to throw. */
 function fmt(n) {
   return typeof n === "number" && Number.isFinite(n) ? n.toFixed(2) : String(n);
@@ -89,7 +109,9 @@ module.exports = {
   isNavigableUrl,
   parseStateUpdate,
   parseJoinContent,
+  parseDeviceId,
   fmt,
   MAX_URL_LEN,
   MAX_TIME_SEC,
+  MAX_DEVICE_ID_LEN,
 };
