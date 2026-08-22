@@ -30,6 +30,8 @@ class WatchPartyManager(
     private val onVoiceParticipants: (list: List<VoiceParticipant>) -> Unit = {},
     private val onReconnecting: (attempt: Int) -> Unit = {},
     private val onReaction: (emoji: String) -> Unit = {},
+    /** A peer asked this device to shut the app down; carries the asker's name. */
+    private val onCloseApp: (name: String) -> Unit = {},
 ) {
     @Volatile var role: String? = null
         private set
@@ -260,6 +262,13 @@ class WatchPartyManager(
                 Log.d(TAG, "reaction received: $emoji from=${msg.optString("from")}")
                 onReaction(emoji)
             }
+            "close-app" -> {
+                // from/name are stamped by the server (server.js close-app handler), so
+                // the name here is trustworthy even though any peer may send this.
+                val who = msg.optString("name").ifBlank { "your partner" }
+                Log.d(TAG, "close-app received from=${msg.optString("from")} name=$who")
+                onCloseApp(who)
+            }
             else -> Log.w(TAG, "unknown message type: $type (raw: ${msg.toString().take(160)})")
         }
     }
@@ -305,6 +314,20 @@ class WatchPartyManager(
         }
         val sent = w.send(payload.toString())
         Log.d(TAG, "sendReaction: ws.send returned $sent")
+    }
+
+    /**
+     * Ask every peer in the room to close their app. The server stamps who asked and
+     * never echoes it back, so this device keeps running. Returns false when there is no
+     * open socket — the caller can then say so rather than pretending it landed.
+     */
+    fun sendCloseApp(): Boolean {
+        Log.d(TAG, "sendCloseApp()")
+        val w = ws
+        if (w == null) { Log.w(TAG, "sendCloseApp: ws is null"); return false }
+        val sent = w.send(JSONObject().apply { put("type", "close-app") }.toString())
+        Log.d(TAG, "sendCloseApp: ws.send returned $sent")
+        return sent
     }
 
     fun requestVoiceToken() {

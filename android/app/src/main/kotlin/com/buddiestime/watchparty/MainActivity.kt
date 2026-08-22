@@ -42,6 +42,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var fabParty: FloatingActionButton
     private lateinit var fabChat: FloatingActionButton
     private lateinit var fabMic: FloatingActionButton
+    private lateinit var fabPower: FloatingActionButton
     private lateinit var tvStatus: TextView
     private lateinit var tvChatBadge: TextView
     private var voice: VoiceManager? = null
@@ -321,6 +322,7 @@ class MainActivity : AppCompatActivity() {
         fabParty = findViewById(R.id.fabParty)
         fabChat = findViewById(R.id.fabChat)
         fabMic = findViewById(R.id.fabMic)
+        fabPower = findViewById(R.id.fabPower)
         tvStatus = findViewById(R.id.tvStatus)
         tvChatBadge = findViewById(R.id.tvChatBadge)
         fullscreenContainer = findViewById(R.id.fullscreenContainer)
@@ -355,12 +357,13 @@ class MainActivity : AppCompatActivity() {
         setupWebView()
 
         fabParty.setOnClickListener {
-            if (manager?.isConnected() == true) showLeaveDialog() else showJoinDialog()
+            if (manager?.isConnected() == true) showLeaveDialog() else joinPairedRoom()
         }
         fabChat.setOnClickListener {
             Log.d(TAG, "fabChat click → toggle overlay")
             chatOverlay.toggle()
         }
+        fabPower.setOnClickListener { confirmCloseTheirApp() }
         findViewById<TextView>(R.id.btnSendHeart).setOnClickListener {
             Log.d(TAG, "btnSendHeart click → sending reaction")
             manager?.sendReaction("💗")
@@ -479,52 +482,19 @@ class MainActivity : AppCompatActivity() {
 
     // ── Party management ──────────────────────────────────────────────────────
 
-    private fun showJoinDialog() {
-        Log.d(TAG, "showJoinDialog")
-        val dialogView = layoutInflater.inflate(R.layout.dialog_join_party, null)
-        val etServer = dialogView.findViewById<TextInputEditText>(R.id.etServer)
-        val etRoom = dialogView.findViewById<TextInputEditText>(R.id.etRoom)
-        val tilServer = dialogView.findViewById<TextInputLayout>(R.id.tilServer)
-        val tvAdvanced = dialogView.findViewById<TextView>(R.id.tvAdvancedToggle)
-        etServer.setText(Config.SERVER_URL)
-
-        tvAdvanced.setOnClickListener {
-            val show = tilServer.visibility != View.VISIBLE
-            Log.d(TAG, "advanced toggle → showServer=$show")
-            tilServer.visibility = if (show) View.VISIBLE else View.GONE
-            tvAdvanced.text = if (show) "advanced ▾" else "advanced ▸"
+    // There is exactly one room — the paired one — so there is nothing to ask for. The
+    // old join-by-code dialog was a leftover of the multi-room era; the pairing redesign
+    // removed the rest of it but this entry point survived and kept prompting.
+    private fun joinPairedRoom() {
+        val roomId = DeviceIdentity(prefs).localRoomId()
+        Log.d(TAG, "joinPairedRoom pairedRoom=$roomId")
+        if (roomId.isNullOrBlank()) {
+            Log.w(TAG, "joinPairedRoom: no paired room — routing to setup")
+            Toast.makeText(this, "Let's finish setting us up first 💌", Toast.LENGTH_LONG).show()
+            startActivity(Intent(this, WelcomeSetupActivity::class.java))
+            return
         }
-
-        val dialog = MaterialAlertDialogBuilder(this)
-            .setTitle("Watch together 💗")
-            .setView(dialogView)
-            .setPositiveButton("Join") { _, _ ->
-                val server = etServer.text?.toString()?.trim().takeUnless { it.isNullOrEmpty() } ?: Config.SERVER_URL
-                val room = etRoom.text?.toString()?.trim().orEmpty()
-                Log.d(TAG, "Join click server=$server room=$room")
-                if (room.isNotEmpty()) connectToParty(server, room)
-                else Toast.makeText(this, "Type the room code first 💌", Toast.LENGTH_SHORT).show()
-            }
-            .setNeutralButton("Create new") { _, _ ->
-                val server = etServer.text?.toString()?.trim().takeUnless { it.isNullOrEmpty() } ?: Config.SERVER_URL
-                val room = generateRoomId()
-                Log.d(TAG, "Create click server=$server generatedRoom=$room")
-                connectToParty(server, room)
-                Toast.makeText(this, "Our room is ready: $room 💌", Toast.LENGTH_LONG).show()
-            }
-            .setNegativeButton("Cancel", null)
-            .create()
-
-        etRoom.setOnEditorActionListener { _, _, _ ->
-            dialog.getButton(AlertDialog.BUTTON_POSITIVE)?.performClick()
-            true
-        }
-        dialog.show()
-    }
-
-    private fun generateRoomId(): String {
-        val chars = "abcdefghijklmnopqrstuvwxyz0123456789"
-        return (1..6).map { chars.random() }.joinToString("")
+        connectToParty(Config.SERVER_URL, roomId)
     }
 
     private fun showLeaveDialog() {
@@ -559,6 +529,7 @@ class MainActivity : AppCompatActivity() {
                 fabChat.visibility = View.VISIBLE
                 chatOverlay.show()
                 fabMic.visibility = View.VISIBLE
+                fabPower.visibility = View.VISIBLE
                 updateMicAppearance()
             },
             onSyncCommand = { time, paused, videoUrl, platform ->
@@ -631,6 +602,10 @@ class MainActivity : AppCompatActivity() {
                 Log.d(TAG, "onReaction emoji=$emoji → floating hearts")
                 showFloatingHearts(emoji)
             },
+            onCloseApp = { who ->
+                Log.d(TAG, "onCloseApp from=$who")
+                closeAppOnRequest(who)
+            },
         )
 
         val platform = currentService?.name ?: "android"
@@ -644,6 +619,43 @@ class MainActivity : AppCompatActivity() {
         tvStatus.visibility = View.VISIBLE
     }
 
+    /**
+     * Ask the other phone to shut down. Guarded by a confirm dialog: it closes an app on
+     * someone else's device, so it must never fire on a stray tap.
+     */
+    private fun confirmCloseTheirApp() {
+        Log.d(TAG, "confirmCloseTheirApp()")
+        if (manager?.isConnected() != true) {
+            Toast.makeText(this, "You're not connected right now", Toast.LENGTH_SHORT).show()
+            return
+        }
+        MaterialAlertDialogBuilder(this)
+            .setTitle("Close their app? 🌙")
+            .setMessage("This shuts the app on their phone and clears it from Recents. Yours stays open.")
+            .setPositiveButton("Close it") { _, _ ->
+                val sent = manager?.sendCloseApp() ?: false
+                Log.d(TAG, "close-app sent=$sent")
+                Toast.makeText(
+                    this,
+                    if (sent) "Goodnight sent 🌙" else "Couldn't reach them right now",
+                    Toast.LENGTH_SHORT,
+                ).show()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    /**
+     * A peer asked us to shut down. finishAndRemoveTask (not finish) so the app also
+     * leaves Recents — otherwise it looks closed but is one swipe from being back.
+     */
+    private fun closeAppOnRequest(who: String) {
+        Log.d(TAG, "closeAppOnRequest from=$who → finishAndRemoveTask")
+        Toast.makeText(this, "$who says goodnight 🌙", Toast.LENGTH_SHORT).show()
+        manager?.disconnect()
+        finishAndRemoveTask()
+    }
+
     private fun leaveParty() {
         Log.d(TAG, "leaveParty()")
         manager?.disconnect()
@@ -655,6 +667,7 @@ class MainActivity : AppCompatActivity() {
         tvStatus.visibility = View.GONE
         fabChat.visibility = View.GONE
         fabMic.visibility = View.GONE
+        fabPower.visibility = View.GONE
         voice?.dispose()
         voice = null
         voiceStatus = VoiceManager.VoiceStatus.IDLE
