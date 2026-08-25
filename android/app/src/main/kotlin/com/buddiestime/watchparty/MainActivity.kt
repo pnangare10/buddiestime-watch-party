@@ -335,7 +335,7 @@ class MainActivity : AppCompatActivity() {
             messagesContainer = findViewById(R.id.llOverlayMessages),
             inputRow = findViewById(R.id.rowOverlayInput),
             inputField = findViewById(R.id.etOverlayInput),
-            ownDisplayName = { prefs.getString(KEY_NAME, "")?.trim().orEmpty() },
+            ownDisplayName = { effectiveDisplayName() },
             onSend = { text ->
                 val ok = manager?.isConnected() == true
                 if (ok) manager?.sendChat(text)
@@ -507,8 +507,20 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
 
+    // The display name lives in one of two places depending on how this device was set
+    // up: the legacy manual-name flow wrote the top-level KEY_NAME string, but the pairing
+    // flow only stores it inside the profile_self JSON (ProfileStore). A paired guest has
+    // the latter and not the former, so reading KEY_NAME alone returned "" and aborted the
+    // join before it opened a socket — the guest never appeared in the room. Fall back to
+    // the profile name so either setup path yields a usable name.
+    private fun effectiveDisplayName(): String {
+        val legacy = prefs.getString(KEY_NAME, "")?.trim().orEmpty()
+        if (legacy.isNotEmpty()) return legacy
+        return ProfileStore(prefs).selfProfile()?.displayName?.trim().orEmpty()
+    }
+
     private fun connectToParty(serverUrl: String, room: String) {
-        val name = prefs.getString(KEY_NAME, "")?.trim().orEmpty()
+        val name = effectiveDisplayName()
         Log.d(TAG, "connectToParty server=$serverUrl room=$room storedName=\"$name\"")
         if (name.isEmpty()) {
             Log.w(TAG, "connectToParty: no stored name — aborting and sending user back to selector")
