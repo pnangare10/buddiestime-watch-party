@@ -46,6 +46,20 @@
         app:backgroundTint="?attr/colorPrimary"
         app:tint="@color/on_accent" />
 
+    <!-- FAB: close the other person's app (visible only while connected) -->
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/fabPower"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|end"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="232dp"
+        android:contentDescription="Close their app"
+        android:src="@drawable/ic_power"
+        app:backgroundTint="@color/plum_surface_hi"
+        app:tint="@color/cream"
+        android:visibility="gone" />
+
     <!-- FAB: mic — click toggle, hold = push-to-talk (visible only while connected) -->
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/fabMic"

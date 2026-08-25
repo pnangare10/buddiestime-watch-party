@@ -37,7 +37,7 @@ test("room survives empty for the grace window and keeps its video state", async
       roomId: "R1",
       clientId: "c1",
       displayName: "Ann",
-      videoUrl: "hotstar.com/x",
+      videoUrl: "https://hotstar.com/x",
       platform: "hotstar",
     });
     // host pushes a timestamp then leaves
@@ -46,7 +46,7 @@ test("room survives empty for the grace window and keeps its video state", async
         type: "state-update",
         time: 42,
         paused: false,
-        videoUrl: "hotstar.com/x",
+        videoUrl: "https://hotstar.com/x",
       }),
     );
     await wait(100);
@@ -62,7 +62,7 @@ test("room survives empty for the grace window and keeps its video state", async
     });
     assert.strictEqual(
       b.joined.videoUrl,
-      "hotstar.com/x",
+      "https://hotstar.com/x",
       "rejoiner inherits room video",
     );
     assert.ok(b.joined.time >= 42, "rejoiner inherits room timestamp");
@@ -79,7 +79,7 @@ test("room is gone after the grace window expires", async () => {
       roomId: "R2",
       clientId: "c1",
       displayName: "Ann",
-      videoUrl: "hotstar.com/y",
+      videoUrl: "https://hotstar.com/y",
       platform: "hotstar",
     });
     a.ws.send(
@@ -87,7 +87,7 @@ test("room is gone after the grace window expires", async () => {
         type: "state-update",
         time: 99,
         paused: true,
-        videoUrl: "hotstar.com/y",
+        videoUrl: "https://hotstar.com/y",
       }),
     );
     await wait(100);
@@ -120,7 +120,7 @@ test("oldest remaining member is promoted to host when host leaves", async () =>
       roomId: "R3",
       clientId: "host1",
       displayName: "Ann",
-      videoUrl: "hotstar.com/z",
+      videoUrl: "https://hotstar.com/z",
       platform: "hotstar",
     });
     assert.strictEqual(a.joined.role, "host");
@@ -128,7 +128,7 @@ test("oldest remaining member is promoted to host when host leaves", async () =>
       roomId: "R3",
       clientId: "guest1",
       displayName: "Bob",
-      videoUrl: "hotstar.com/z",
+      videoUrl: "https://hotstar.com/z",
       platform: "hotstar",
     });
     assert.strictEqual(b.joined.role, "guest");
@@ -174,7 +174,7 @@ test("status API reports active rooms with counts and video", async () => {
       roomId: "S1",
       clientId: "c1",
       displayName: "Ann",
-      videoUrl: "hotstar.com/live",
+      videoUrl: "https://hotstar.com/live",
       platform: "hotstar",
     });
     a.ws.send(
@@ -182,7 +182,7 @@ test("status API reports active rooms with counts and video", async () => {
         type: "state-update",
         time: 10,
         paused: false,
-        videoUrl: "hotstar.com/live",
+        videoUrl: "https://hotstar.com/live",
       }),
     );
     await wait(100);
@@ -192,7 +192,7 @@ test("status API reports active rooms with counts and video", async () => {
     const s1 = list.json.rooms.find((r) => r.roomId === "S1");
     assert.strictEqual(s1.active, true);
     assert.strictEqual(s1.count, 1);
-    assert.strictEqual(s1.videoUrl, "hotstar.com/live");
+    assert.strictEqual(s1.videoUrl, "https://hotstar.com/live");
     const nope = list.json.rooms.find((r) => r.roomId === "NOPE");
     assert.strictEqual(nope.active, false);
     assert.strictEqual(nope.count, 0);

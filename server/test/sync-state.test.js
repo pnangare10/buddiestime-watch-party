@@ -53,7 +53,7 @@ test("a guest joining mid-playback receives the host's time aged forward", async
       roomId: "AGE1",
       clientId: "h1",
       displayName: "Host",
-      videoUrl: "hotstar.com/x",
+      videoUrl: "https://hotstar.com/x",
       platform: "hotstar",
     });
     host.ws.send(
@@ -61,7 +61,7 @@ test("a guest joining mid-playback receives the host's time aged forward", async
         type: "state-update",
         time: 100,
         paused: false,
-        videoUrl: "hotstar.com/x",
+        videoUrl: "https://hotstar.com/x",
       }),
     );
 
@@ -71,7 +71,7 @@ test("a guest joining mid-playback receives the host's time aged forward", async
       roomId: "AGE1",
       clientId: "g1",
       displayName: "Guest",
-      videoUrl: "hotstar.com/x",
+      videoUrl: "https://hotstar.com/x",
       platform: "hotstar",
     });
 
@@ -99,7 +99,7 @@ test("a paused room's time is handed over untouched", async () => {
       roomId: "AGE2",
       clientId: "h1",
       displayName: "Host",
-      videoUrl: "hotstar.com/x",
+      videoUrl: "https://hotstar.com/x",
       platform: "hotstar",
     });
     host.ws.send(
@@ -107,7 +107,7 @@ test("a paused room's time is handed over untouched", async () => {
         type: "state-update",
         time: 100,
         paused: true,
-        videoUrl: "hotstar.com/x",
+        videoUrl: "https://hotstar.com/x",
       }),
     );
 
@@ -117,7 +117,7 @@ test("a paused room's time is handed over untouched", async () => {
       roomId: "AGE2",
       clientId: "g1",
       displayName: "Guest",
-      videoUrl: "hotstar.com/x",
+      videoUrl: "https://hotstar.com/x",
       platform: "hotstar",
     });
 
@@ -140,14 +140,14 @@ test("relayed state-update reaches the guest with the host's own timestamp", asy
       roomId: "REL1",
       clientId: "h1",
       displayName: "Host",
-      videoUrl: "hotstar.com/x",
+      videoUrl: "https://hotstar.com/x",
       platform: "hotstar",
     });
     const guest = await joinRoom(srv.wsUrl, {
       roomId: "REL1",
       clientId: "g1",
       displayName: "Guest",
-      videoUrl: "hotstar.com/x",
+      videoUrl: "https://hotstar.com/x",
       platform: "hotstar",
     });
 
@@ -157,7 +157,7 @@ test("relayed state-update reaches the guest with the host's own timestamp", asy
         type: "state-update",
         time: 250.5,
         paused: false,
-        videoUrl: "hotstar.com/x",
+        videoUrl: "https://hotstar.com/x",
       }),
     );
     const msg = await relayed;
@@ -167,7 +167,7 @@ test("relayed state-update reaches the guest with the host's own timestamp", asy
       `relay should not age the host's fresh sample, got ${msg.time}`,
     );
     assert.strictEqual(msg.paused, false);
-    assert.strictEqual(msg.videoUrl, "hotstar.com/x");
+    assert.strictEqual(msg.videoUrl, "https://hotstar.com/x");
     assert.strictEqual(msg.platform, "hotstar");
 
     host.ws.close();

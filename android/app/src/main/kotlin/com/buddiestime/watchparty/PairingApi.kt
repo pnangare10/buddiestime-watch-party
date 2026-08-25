@@ -158,6 +158,33 @@ class PairingApi(private val baseHttpUrl: String) {
         })
     }
 
+    /**
+     * Live playback state for a room (GET /api/room/<id>) — the WebSocket-era endpoint,
+     * separate from the pairing record served by /api/rooms/<id>. A 404 means the server
+     * holds no state for this room (nobody has watched anything recently), which is a
+     * normal answer, not an error — hence null rather than a reason string.
+     */
+    fun getRoomStatus(roomId: String, cb: (RoomStatus?) -> Unit) {
+        val req = Request.Builder().url(url("/api/room/$roomId")).build()
+        Log.d(TAG, "GET /api/room/$roomId")
+        http.newCall(req).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                Log.w(TAG, "getRoomStatus failed: ${e.message}")
+                cb(null)
+            }
+            override fun onResponse(call: Call, response: Response) {
+                val raw = response.body?.string()
+                Log.d(TAG, "getRoomStatus → ${response.code} $raw")
+                if (!response.isSuccessful || raw == null) { cb(null); return }
+                val status = try { parseRoomStatus(raw) } catch (e: Exception) {
+                    Log.w(TAG, "getRoomStatus parse failed: ${e.message}")
+                    null
+                }
+                cb(status)
+            }
+        })
+    }
+
     fun setTheme(roomId: String, deviceId: String, mode: String, value: String?, cb: (Boolean) -> Unit) {
         val body = JSONObject().put("deviceId", deviceId).put("mode", mode)
         if (value != null) body.put("value", value)

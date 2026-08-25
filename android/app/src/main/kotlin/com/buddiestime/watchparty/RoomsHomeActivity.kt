@@ -5,6 +5,8 @@ import android.animation.PropertyValuesHolder
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.provider.Settings
 import android.util.Log
 import android.view.Menu
@@ -22,12 +24,23 @@ private const val PREFS = "hwp_prefs"
 private const val SPLASH_DURATION_MS = 3800L  // love-note auto-dismiss; tap skips early
 // Shown only when the welcome-message pool is empty (fresh pairing, nobody's added one yet).
 private val defaultWelcomeLines = listOf("Hey, welcome back 💗", "Missed you 🎬", "Ready for movie night?")
+// How often the home screen re-checks whether a party is live, so the guest sees the
+// host start watching without having to re-foreground the app.
+private const val STATUS_POLL_INTERVAL_MS = 5000L
 
 class RoomsHomeActivity : AppCompatActivity() {
     private lateinit var deviceIdentity: DeviceIdentity
     private lateinit var profileStore: ProfileStore
     private lateinit var api: PairingApi
     private var currentRoom: RoomView? = null
+    private var liveStatus: RoomStatus? = null
+
+    private val pollHandler = Handler(Looper.getMainLooper())
+    private var pollRunnable: Runnable? = null
+    // Last observed live-party state. Auto-join fires only on the not-live → live
+    // *transition*, so returning from the party (which leaves this state true) doesn't
+    // immediately bounce the user back in. Reset to false when the party ends.
+    private var wasLiveParty = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -59,10 +72,7 @@ class RoomsHomeActivity : AppCompatActivity() {
             "Hey ${selfProfile?.petName ?: selfProfile?.displayName ?: "there"} 💗"
         findViewById<TextView>(R.id.tvGreetingSub).text = greetingSubline()
 
-        findViewById<View>(R.id.btnStartWatching).setOnClickListener {
-            Log.d(TAG, "hero card tapped → ServiceSelector")
-            startActivity(Intent(this, ServiceSelectorActivity::class.java))
-        }
+        findViewById<View>(R.id.btnStartWatching).setOnClickListener { onStartWatchingTapped() }
         findViewById<MaterialButton>(R.id.btnInviteNow).setOnClickListener { onInviteButtonTapped() }
     }
 
@@ -151,40 +161,148 @@ class RoomsHomeActivity : AppCompatActivity() {
         super.onResume()
         if (deviceIdentity.hasDevice() && deviceIdentity.hasRoom()) {
             refreshPairingStatus()
+            startStatusPolling()
         }
     }
 
+    override fun onPause() {
+        super.onPause()
+        stopStatusPolling()
+    }
+
+    // Re-checks the live-party status on a timer so the guest picks up the host starting
+    // a party without re-foregrounding the app. Only the status call is polled (not the
+    // full pairing record); getRoom stays a one-shot in refreshPairingStatus().
+    private fun startStatusPolling() {
+        stopStatusPolling()
+        val roomId = deviceIdentity.localRoomId() ?: return
+        val runnable = object : Runnable {
+            override fun run() {
+                api.getRoomStatus(roomId) { status ->
+                    runOnUiThread {
+                        Log.d(TAG, "poll getRoomStatus active=${status?.active} count=${status?.count} url=${status?.videoUrl}")
+                        liveStatus = status
+                        renderHome()
+                        maybeAutoJoin()
+                    }
+                }
+                pollHandler.postDelayed(this, STATUS_POLL_INTERVAL_MS)
+            }
+        }
+        pollRunnable = runnable
+        pollHandler.postDelayed(runnable, STATUS_POLL_INTERVAL_MS)
+    }
+
+    private fun stopStatusPolling() {
+        pollRunnable?.let { pollHandler.removeCallbacks(it) }
+        pollRunnable = null
+    }
+
+    // Enters the party automatically the moment it goes live. Edge-triggered on the
+    // not-live → live transition so a user who backed out of the party isn't dragged
+    // straight back in (that path leaves wasLiveParty=true, so no transition fires).
+    private fun maybeAutoJoin() {
+        val live = liveStatus?.isLiveParty() == true
+        if (live && !wasLiveParty) {
+            wasLiveParty = true
+            Log.d(TAG, "auto-join: party went live → entering it")
+            onStartWatchingTapped()
+            return
+        }
+        wasLiveParty = live
+    }
+
+    // Two independent calls: the pairing record (who we are) and the live playback state
+    // (what's on right now). They race, so neither callback touches the UI directly —
+    // each stores its own result and re-runs renderHome(), which reads both. Whichever
+    // lands second produces the final state, so arrival order can't matter.
     private fun refreshPairingStatus() {
         val roomId = deviceIdentity.localRoomId() ?: return
         val deviceId = deviceIdentity.localDeviceId() ?: return
         Log.d(TAG, "refreshPairingStatus roomId=$roomId")
+
         api.getRoom(roomId, deviceId) { room, error ->
             runOnUiThread {
                 if (room == null) {
-                    Log.w(TAG, "refreshPairingStatus failed: $error")
+                    Log.w(TAG, "getRoom failed: $error")
                     findViewById<TextView>(R.id.tvPairingStatus).text = "Couldn't reach the server — pull to refresh"
                     return@runOnUiThread
                 }
                 currentRoom = room
-                val partnerPaired = room.partnerDeviceId != null
-                Log.d(TAG, "refreshPairingStatus room=${room.roomName} partnerPaired=$partnerPaired")
-                findViewById<TextView>(R.id.tvPairingStatus).text = if (partnerPaired) {
-                    "💗 ${room.roomName} — you're both paired up"
-                } else {
-                    "💗 ${room.roomName} — waiting for your partner to join"
-                }
-                findViewById<MaterialButton>(R.id.btnInviteNow).text = if (partnerPaired) {
-                    "💌 Nudge them"
-                } else {
-                    "📤 Share invite link"
-                }
-
+                Log.d(TAG, "getRoom room=${room.roomName} partnerPaired=${room.partnerDeviceId != null}")
                 profileStore.cacheWelcomeMessages(
                     room.welcomeMessages.filter { it.authorDeviceId != deviceId }.map { it.text }
                 )
                 profileStore.cacheTheme(room.theme)
+                renderHome()
             }
         }
+
+        api.getRoomStatus(roomId) { status ->
+            runOnUiThread {
+                Log.d(TAG, "getRoomStatus active=${status?.active} count=${status?.count} url=${status?.videoUrl}")
+                liveStatus = status
+                renderHome()
+                maybeAutoJoin()
+            }
+        }
+    }
+
+    private fun renderHome() {
+        val room = currentRoom
+        if (room != null) {
+            val partnerPaired = room.partnerDeviceId != null
+            findViewById<TextView>(R.id.tvPairingStatus).text = if (partnerPaired) {
+                "💗 ${room.roomName} — you're both paired up"
+            } else {
+                "💗 ${room.roomName} — waiting for your partner to join"
+            }
+            findViewById<MaterialButton>(R.id.btnInviteNow).text = if (partnerPaired) {
+                "💌 Nudge them"
+            } else {
+                "📤 Share invite link"
+            }
+        }
+
+        val live = liveStatus?.takeIf { it.isLiveParty() }
+        findViewById<TextView>(R.id.tvHeroTitle).text = if (live != null) {
+            "▶️  Jump back into ${serviceLabel(live.platform)}"
+        } else {
+            "🍿  Start our movie night"
+        }
+        findViewById<TextView>(R.id.tvHeroSub).text = if (live != null) {
+            "already playing — join them"
+        } else {
+            "our own little cinema"
+        }
+    }
+
+    private fun serviceLabel(platform: String?): String = when (platform?.lowercase()) {
+        "netflix" -> "Netflix"
+        "primevideo" -> "Prime Video"
+        "youtube" -> "YouTube"
+        "hotstar" -> "Hotstar"
+        else -> "our room"
+    }
+
+    // Live party → straight into it on the same video. Otherwise pick a platform first.
+    // liveStatus is null until the first response lands, so the pre-load default is the
+    // safe one (the selector), never a jump into a video that may not exist.
+    private fun onStartWatchingTapped() {
+        val live = liveStatus?.takeIf { it.isLiveParty() }
+        val roomId = deviceIdentity.localRoomId()
+        if (live == null || roomId.isNullOrBlank()) {
+            Log.d(TAG, "hero tapped, no live party → ServiceSelector")
+            startActivity(Intent(this, ServiceSelectorActivity::class.java))
+            return
+        }
+        Log.d(TAG, "hero tapped, live party → MainActivity platform=${live.platform} url=${live.videoUrl}")
+        startActivity(Intent(this, MainActivity::class.java).apply {
+            putExtra("service", live.platform ?: "hotstar")
+            putExtra("hwp_url", live.videoUrl)
+            putExtra("roomId", roomId)
+            putExtra("join", true)
+        })
     }
 
     private fun onInviteButtonTapped() {

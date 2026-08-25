@@ -44,12 +44,14 @@
             android:paddingTop="22dp" android:paddingBottom="22dp">
 
             <TextView
+                android:id="@+id/tvHeroTitle"
                 android:layout_width="wrap_content" android:layout_height="wrap_content"
                 android:fontFamily="@font/fredoka" android:textStyle="bold"
                 android:text="🍿  Start our movie night"
                 android:textColor="@color/on_accent" android:textSize="20sp" />
 
             <TextView
+                android:id="@+id/tvHeroSub"
                 android:layout_width="wrap_content" android:layout_height="wrap_content"
                 android:layout_marginTop="2dp" android:alpha="0.75"
                 android:fontFamily="@font/nunito"

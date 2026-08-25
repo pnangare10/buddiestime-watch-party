@@ -43,10 +43,18 @@ class ServiceSelectorActivity : AppCompatActivity() {
         launchParty(serviceName)
     }
 
+    // The pairing redesign fixed us to a single constant room, so the room id is never
+    // typed — it comes from the device's pairing record and rides along as an extra so
+    // MainActivity auto-connects instead of prompting.
     private fun launchParty(serviceName: String) {
-        Log.d(TAG, "launchParty(service=$serviceName)")
+        val roomId = DeviceIdentity(prefs).localRoomId()
+        Log.d(TAG, "launchParty(service=$serviceName) pairedRoom=$roomId")
         startActivity(Intent(this, MainActivity::class.java).apply {
             putExtra("service", serviceName)
+            if (!roomId.isNullOrBlank()) {
+                putExtra("roomId", roomId)
+                putExtra("join", true)
+            }
         })
         finish()
     }
