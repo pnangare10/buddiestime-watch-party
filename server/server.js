@@ -1055,6 +1055,31 @@ wss.on("connection", (ws, req) => {
       return;
     }
 
+    // ── leave-party (one device ends the movie night for the whole room) ─
+    if (msg.type === "leave-party") {
+      const state = roomState.get(roomId);
+      if (state) {
+        Object.assign(state, {
+          videoUrl: null,
+          time: 0,
+          paused: true,
+          updatedAt: Date.now(),
+        });
+      }
+      console.log(
+        `[${roomId}] LEAVE-PARTY from ${senderInfo.role}:${senderInfo.id}(${senderInfo.name}) → room state cleared, relaying to peers`,
+      );
+      // from/name are stamped here, never taken from the client, so a peer can
+      // always show who left. The sender is excluded — it's already navigating
+      // away on its own.
+      broadcast(roomId, ws, {
+        type: "party-left",
+        from: senderInfo.id,
+        name: senderInfo.name,
+      });
+      return;
+    }
+
     console.log(
       `[${roomId}] unknown message type="${msg.type}" from clientId=${clientId}`,
     );

@@ -502,7 +502,7 @@ class MainActivity : AppCompatActivity() {
         MaterialAlertDialogBuilder(this)
             .setTitle("Leaving already? 🥺")
             .setMessage("You're connected as $roleLabel. End the movie night?")
-            .setPositiveButton("Leave") { _, _ -> leaveParty() }
+            .setPositiveButton("Leave") { _, _ -> endParty() }
             .setNegativeButton("Stay", null)
             .show()
     }
@@ -618,6 +618,10 @@ class MainActivity : AppCompatActivity() {
                 Log.d(TAG, "onCloseApp from=$who")
                 closeAppOnRequest(who)
             },
+            onPartyLeft = { who ->
+                Log.d(TAG, "onPartyLeft from=$who")
+                partyLeftByPeer(who)
+            },
         )
 
         val platform = currentService?.name ?: "android"
@@ -689,6 +693,31 @@ class MainActivity : AppCompatActivity() {
         unreadChatCount = 0
         chatOverlay.reset()
         webView.evaluateJavascript("if (window.HWP_stop) HWP_stop();", null)
+    }
+
+    /**
+     * End the movie night for everyone: clears the room's stored video on the server
+     * (so the next join doesn't sync back to it), tears down this device's own
+     * connection, then heads back to the platform picker to start a new one.
+     */
+    private fun endParty() {
+        Log.d(TAG, "endParty()")
+        manager?.sendLeaveParty()
+        leaveParty()
+        goHomeToStartNewParty()
+    }
+
+    /** A peer sent leave-party — our room state (and video) are gone too, follow them home. */
+    private fun partyLeftByPeer(who: String) {
+        Log.d(TAG, "partyLeftByPeer from=$who")
+        Toast.makeText(this, "$who left the party 💔", Toast.LENGTH_SHORT).show()
+        leaveParty()
+        goHomeToStartNewParty()
+    }
+
+    private fun goHomeToStartNewParty() {
+        startActivity(Intent(this, ServiceSelectorActivity::class.java))
+        finish()
     }
 
     @Suppress("DEPRECATION")

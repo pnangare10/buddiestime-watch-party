@@ -32,6 +32,7 @@ class WatchPartyManager(
     private val onReaction: (emoji: String) -> Unit = {},
     /** A peer asked this device to shut the app down; carries the asker's name. */
     private val onCloseApp: (name: String) -> Unit = {},
+    private val onPartyLeft: (name: String) -> Unit = {},
 ) {
     @Volatile var role: String? = null
         private set
@@ -269,6 +270,13 @@ class WatchPartyManager(
                 Log.d(TAG, "close-app received from=${msg.optString("from")} name=$who")
                 onCloseApp(who)
             }
+            "party-left" -> {
+                // from/name are stamped by the server (server.js leave-party handler), so
+                // the name here is trustworthy even though any peer may send this.
+                val who = msg.optString("name").ifBlank { "your partner" }
+                Log.d(TAG, "party-left received from=${msg.optString("from")} name=$who")
+                onPartyLeft(who)
+            }
             else -> Log.w(TAG, "unknown message type: $type (raw: ${msg.toString().take(160)})")
         }
     }
@@ -327,6 +335,21 @@ class WatchPartyManager(
         if (w == null) { Log.w(TAG, "sendCloseApp: ws is null"); return false }
         val sent = w.send(JSONObject().apply { put("type", "close-app") }.toString())
         Log.d(TAG, "sendCloseApp: ws.send returned $sent")
+        return sent
+    }
+
+    /**
+     * Tell every peer the movie night is over so their room state (and video) clears
+     * too. Unlike sendCloseApp, this doesn't ask peers to shut down — they navigate
+     * back to their own home screen and can start a fresh party. Returns false when
+     * there is no open socket.
+     */
+    fun sendLeaveParty(): Boolean {
+        Log.d(TAG, "sendLeaveParty()")
+        val w = ws
+        if (w == null) { Log.w(TAG, "sendLeaveParty: ws is null"); return false }
+        val sent = w.send(JSONObject().apply { put("type", "leave-party") }.toString())
+        Log.d(TAG, "sendLeaveParty: ws.send returned $sent")
         return sent
     }
 
