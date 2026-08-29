@@ -15,6 +15,7 @@ import androidx.core.widget.NestedScrollView
 
 private const val AMBIENT_FADE_MS = 5_000L
 private const val MAX_HISTORY = 200
+private const val VISIBLE_ROW_COUNT = 5
 
 /**
  * Owns the transparent chat overlay: an ambient last-message bubble that auto-fades,
@@ -147,7 +148,34 @@ class ChatOverlayController(
         }
         if (messagesContainer.childCount >= MAX_HISTORY) messagesContainer.removeViewAt(0)
         messagesContainer.addView(row)
-        if (isExpanded) scrollToBottom()
+        if (isExpanded) {
+            clampVisibleHeight()
+            scrollToBottom()
+        }
+    }
+
+    /**
+     * Caps the scroll viewport to exactly the height of the last [VISIBLE_ROW_COUNT] rows so the
+     * input row is never pushed off-screen, regardless of how many messages have accumulated.
+     * Older rows stay in the container and remain reachable by scrolling up.
+     */
+    private fun clampVisibleHeight() {
+        messagesContainer.post {
+            val childCount = messagesContainer.childCount
+            if (childCount == 0) return@post
+            val visibleCount = minOf(VISIBLE_ROW_COUNT, childCount)
+            var height = 0
+            for (i in childCount - visibleCount until childCount) {
+                val child = messagesContainer.getChildAt(i)
+                height += child.height + ((child.layoutParams as? LinearLayout.LayoutParams)?.bottomMargin ?: 0)
+            }
+            if (height <= 0) return@post
+            val lp = scrollView.layoutParams
+            if (lp.height != height) {
+                lp.height = height
+                scrollView.layoutParams = lp
+            }
+        }
     }
 
     private fun showAmbient(m: ChatMessage) {
@@ -166,6 +194,7 @@ class ChatOverlayController(
         scrollView.visibility = View.VISIBLE
         inputRow.visibility = View.VISIBLE
         onExpandedChanged(true)
+        clampVisibleHeight()
         scrollToBottom()
         inputField.requestFocus()
         imm().showSoftInput(inputField, InputMethodManager.SHOW_IMPLICIT)

@@ -135,7 +135,7 @@
             android:id="@+id/svOverlay"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:maxHeight="205dp"
+            android:maxHeight="260dp"
             android:visibility="gone">
 
             <LinearLayout
