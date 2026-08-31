@@ -1,5 +1,6 @@
 // FCM push, mirroring livekit.js's shape: env-configured creds, a READY flag, graceful no-op when unset.
 const admin = require("firebase-admin");
+const { getMessaging } = require("firebase-admin/messaging");
 
 const SERVICE_ACCOUNT_JSON = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
 const FCM_READY = !!SERVICE_ACCOUNT_JSON;
@@ -18,7 +19,7 @@ if (!FCM_READY) {
 async function sendNudge(fcmToken, body) {
   if (!FCM_READY) return { ok: false, reason: "push-not-configured" };
   try {
-    await admin.messaging().send({
+    await getMessaging().send({
       token: fcmToken,
       notification: { title: "Watch Party 💗", body },
       data: { type: "nudge" },
