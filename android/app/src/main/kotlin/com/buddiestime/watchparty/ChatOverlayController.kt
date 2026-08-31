@@ -40,6 +40,7 @@ class ChatOverlayController(
 ) {
     private val history = mutableListOf<ChatMessage>()
     private val echoTracker = OutgoingEchoTracker()
+    private val haptics = Haptics(overlayRoot.context)
     private val fadeHandler = Handler(Looper.getMainLooper())
     private val fadeRunnable = Runnable { ambientView.visibility = View.GONE }
 
@@ -56,6 +57,7 @@ class ChatOverlayController(
         val isOwnEcho = m.name.trim() == ownDisplayName().trim() &&
             echoTracker.consumeEcho(m.text, now)
         if (isOwnEcho) return  // already rendered optimistically on send
+        haptics.messageBuzz()
         addToHistory(m)
         if (isExpanded) {
             scrollToBottom()
