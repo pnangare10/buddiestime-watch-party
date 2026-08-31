@@ -228,7 +228,11 @@ function pickRandomMessage(room, pool) {
   return list[Math.floor(Math.random() * list.length)].text;
 }
 
-async function triggerNudge(store, pushSend, { roomId, triggeringDeviceId }) {
+async function triggerNudge(
+  store,
+  pushSend,
+  { roomId, triggeringDeviceId, customText },
+) {
   const room = await store.getRoom(roomId);
   if (!room) return { ok: false, reason: "unknown-room" };
 
@@ -261,7 +265,7 @@ async function triggerNudge(store, pushSend, { roomId, triggeringDeviceId }) {
     return { ok: false, reason: "quiet-hours" };
   }
 
-  const text = pickRandomMessage(room, "nudge");
+  const text = customText?.trim() || pickRandomMessage(room, "nudge");
   if (!text) return { ok: false, reason: "no-messages" };
 
   const result = await pushSend(recipient.fcmToken, text);

@@ -205,8 +205,8 @@ class PairingApi(private val baseHttpUrl: String) {
         patch("/api/devices/$deviceId", body, cb)
     }
 
-    fun triggerNudge(roomId: String, deviceId: String, cb: (Boolean) -> Unit) {
-        val body = JSONObject().put("deviceId", deviceId)
+    fun triggerNudge(roomId: String, deviceId: String, text: String, cb: (Boolean) -> Unit) {
+        val body = JSONObject().put("deviceId", deviceId).put("text", text)
         post("/api/rooms/$roomId/nudge", body) { _, error -> cb(error == null) }
     }
 }

@@ -231,6 +231,7 @@ async function handleHttp(req, res) {
       const result = await pairing.triggerNudge(pairingStore, push.sendNudge, {
         roomId,
         triggeringDeviceId: body.deviceId,
+        customText: body.text,
       });
       res.writeHead(result.ok ? 200 : 409, {
         "Content-Type": "application/json",

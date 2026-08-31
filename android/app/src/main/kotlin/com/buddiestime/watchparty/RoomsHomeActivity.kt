@@ -14,16 +14,32 @@ import android.view.MenuItem
 import android.view.View
 import android.view.ViewStub
 import android.view.animation.LinearInterpolator
+import android.widget.EditText
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.google.android.material.button.MaterialButton
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 
 private const val TAG = "HWP-HOME"
 private const val PREFS = "hwp_prefs"
 private const val SPLASH_DURATION_MS = 3800L  // love-note auto-dismiss; tap skips early
 // Shown only when the welcome-message pool is empty (fresh pairing, nobody's added one yet).
 private val defaultWelcomeLines = listOf("Hey, welcome back 💗", "Missed you 🎬", "Ready for movie night?")
+// Prefilled into the nudge compose dialog — one is picked at random each time the
+// "Nudge them" button is tapped, and the user can edit it before sending.
+private val defaultNudgeMessages = listOf(
+    "Come watch with me! 💗",
+    "I'm ready when you are 🍿",
+    "Missing you — join me? 🥹",
+    "One episode won't hurt 👀",
+    "Movie night calling your name 🎬",
+    "Come cuddle up and watch 🛋️",
+    "I saved you a spot 💺",
+    "Don't leave me watching alone 🥺",
+    "Let's press play together ▶️",
+    "Thinking of you — wanna watch? 💭",
+)
 // How often the home screen re-checks whether a party is live, so the guest sees the
 // host start watching without having to re-foreground the app.
 private const val STATUS_POLL_INTERVAL_MS = 5000L
@@ -328,10 +344,26 @@ class RoomsHomeActivity : AppCompatActivity() {
     }
 
     private fun nudgePartner(roomId: String, deviceId: String) {
-        Log.d(TAG, "nudgePartner roomId=$roomId")
-        api.triggerNudge(roomId, deviceId) { ok ->
+        val input = EditText(this).apply {
+            setText(defaultNudgeMessages.random())
+            setSelection(text.length)
+        }
+        MaterialAlertDialogBuilder(this)
+            .setTitle("Nudge them 💌")
+            .setView(input)
+            .setPositiveButton("Send") { _, _ ->
+                val text = input.text.toString().trim()
+                if (text.isNotEmpty()) sendNudge(roomId, deviceId, text)
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun sendNudge(roomId: String, deviceId: String, text: String) {
+        Log.d(TAG, "sendNudge roomId=$roomId")
+        api.triggerNudge(roomId, deviceId, text) { ok ->
             runOnUiThread {
-                Log.d(TAG, "nudgePartner result ok=$ok")
+                Log.d(TAG, "sendNudge result ok=$ok")
                 Toast.makeText(
                     this,
                     if (ok) "Nudge sent 💌" else "Couldn't reach them right now — try again later",

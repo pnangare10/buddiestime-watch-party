@@ -165,6 +165,47 @@ test("triggerNudge still routes owner→partner and partner→owner", async () =
   );
 });
 
+test("triggerNudge sends the caller's customText instead of a pool message", async () => {
+  const store = makeFakeStore();
+  const { deviceId: hisId } = await pairing.createDevice(store);
+  const { deviceId: herId } = await pairing.createDevice(store);
+  const created = await pairing.createRoom(store, {
+    roomName: "CustomTextRoom",
+    ownerDeviceId: hisId,
+    ownerProfile: {},
+    partnerProfileDraft: {},
+  });
+  await pairing
+    .mintInvite(store, { roomId: created.roomId, requestingDeviceId: hisId })
+    .then((inv) =>
+      pairing.redeemInvite(store, {
+        roomId: created.roomId,
+        token: inv.token,
+        deviceId: herId,
+      }),
+    );
+  // Deliberately no addMessage call — the pool stays empty, proving customText
+  // does not depend on it.
+  const herDevice = await store.getDevice(herId);
+  herDevice.fcmToken = "her-fcm-token";
+  await store.putDevice(herId, herDevice);
+
+  const sent = [];
+  const fakePush = async (token, body) => {
+    sent.push({ token, body });
+    return { ok: true };
+  };
+
+  const result = await pairing.triggerNudge(store, fakePush, {
+    roomId: created.roomId,
+    triggeringDeviceId: hisId,
+    customText: "dinner's ready, come watch! 🍝",
+  });
+  assert.strictEqual(result.ok, true);
+  assert.strictEqual(sent.length, 1);
+  assert.strictEqual(sent[0].body, "dinner's ready, come watch! 🍝");
+});
+
 test("triggerNudge suppresses entirely during quiet hours", async () => {
   const store = makeFakeStore();
   const { deviceId: hisId } = await pairing.createDevice(store);
