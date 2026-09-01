@@ -222,9 +222,26 @@ function isQuietNow(device, now = new Date()) {
     : hour >= startHour || hour < endHour; // wraps past midnight
 }
 
+// Rooms are created with empty message pools and nothing ever seeds them, so
+// without this fallback every nudge that didn't carry custom text died with
+// `no-messages` — including the auto-nudge on video-start, which never passes
+// any. Falling back here rather than seeding createRoom also rescues rooms that
+// were already created with empty arrays.
+const DEFAULT_NUDGE_MESSAGES = [
+  "come watch with me ✨",
+  "movie night?",
+  "press play, I'm waiting ❤️",
+  "miss you — one more episode?",
+];
+
 function pickRandomMessage(room, pool) {
   const list = pool === "nudge" ? room.nudgeMessages : room.welcomeMessages;
-  if (!list || list.length === 0) return null;
+  if (!list || list.length === 0) {
+    if (pool !== "nudge") return null;
+    return DEFAULT_NUDGE_MESSAGES[
+      Math.floor(Math.random() * DEFAULT_NUDGE_MESSAGES.length)
+    ];
+  }
   return list[Math.floor(Math.random() * list.length)].text;
 }
 

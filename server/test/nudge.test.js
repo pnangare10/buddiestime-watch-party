@@ -249,3 +249,51 @@ test("triggerNudge suppresses entirely during quiet hours", async () => {
   assert.strictEqual(result.reason, "quiet-hours");
   assert.strictEqual(sent.length, 0, "must not send at all, not defer");
 });
+
+test("triggerNudge falls back to a default message when the room's nudge pool is empty", async () => {
+  const store = makeFakeStore();
+  const { deviceId: hisId } = await pairing.createDevice(store);
+  const { deviceId: herId } = await pairing.createDevice(store);
+  const created = await pairing.createRoom(store, {
+    roomName: "EmptyPoolRoom",
+    ownerDeviceId: hisId,
+    ownerProfile: {},
+    partnerProfileDraft: {},
+  });
+  const inv = await pairing.mintInvite(store, {
+    roomId: created.roomId,
+    requestingDeviceId: hisId,
+  });
+  await pairing.redeemInvite(store, {
+    roomId: created.roomId,
+    token: inv.token,
+    deviceId: herId,
+  });
+
+  // Deliberately add NO messages — this is the state every real room starts in.
+  const room = await store.getRoom(created.roomId);
+  assert.deepStrictEqual(room.nudgeMessages, [], "precondition: pool is empty");
+
+  const herDevice = await store.getDevice(herId);
+  herDevice.fcmToken = "her-fcm-token";
+  await store.putDevice(herId, herDevice);
+
+  const sent = [];
+  const fakePush = async (token, body) => {
+    sent.push({ token, body });
+    return { ok: true };
+  };
+
+  const result = await pairing.triggerNudge(store, fakePush, {
+    roomId: created.roomId,
+    triggeringDeviceId: hisId,
+  });
+
+  assert.deepStrictEqual(result, { ok: true });
+  assert.strictEqual(sent.length, 1);
+  assert.strictEqual(sent[0].token, "her-fcm-token");
+  assert.ok(
+    sent[0].body && sent[0].body.trim().length > 0,
+    "a default nudge message should have been sent",
+  );
+});
