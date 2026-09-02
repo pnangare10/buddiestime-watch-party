@@ -83,7 +83,14 @@ async function mintInvite(store, { roomId, requestingDeviceId, pin }) {
 
   const token = newToken();
   await store.putInvite(token, roomId);
-  room.pendingInvite = { token, createdAt: Date.now(), pin: pin || null };
+  // mintedBy drives device-loss recovery in redeemInvite: the surviving device is
+  // the one that minted the invite, so the other slot is the one to replace.
+  room.pendingInvite = {
+    token,
+    createdAt: Date.now(),
+    pin: pin || null,
+    mintedBy: requestingDeviceId,
+  };
   room.updatedAt = Date.now();
   await store.putRoom(roomId, room);
   console.log(
@@ -117,16 +124,32 @@ async function redeemInvite(store, { roomId, token, deviceId, pin }) {
   if (device.roomId && device.roomId !== roomId)
     return { ok: false, reason: "device-already-in-room" };
 
-  // Normal join (empty partner slot) vs. device-loss recovery (replacing whichever
-  // side isn't the requester who minted this invite — partner slot is the common case).
-  const replacedRole = "partner";
-  room.partnerDeviceId = deviceId;
+  // Normal join fills the empty partner slot. On an already-full room this is
+  // device-loss recovery, so replace whichever side did NOT mint the invite — the
+  // minter is by definition the surviving device. Without this the owner slot was
+  // unreachable: a reinstalled owner could only ever land in the partner slot, and
+  // createRoom can't rebuild the room either because reserveRoomName still holds the
+  // name. Invites minted before `mintedBy` was recorded fall back to the partner
+  // slot, which is the behavior they were created under.
+  const roomIsFull = !!room.ownerDeviceId && !!room.partnerDeviceId;
+  const mintedBy = room.pendingInvite.mintedBy || null;
+  const replacedRole =
+    roomIsFull && mintedBy && mintedBy === room.partnerDeviceId
+      ? "owner"
+      : "partner";
+
   device.roomId = roomId;
-  device.role = "partner";
-  device.profile = {
-    ...(room.partnerProfileDraft || {}),
-    ...(device.profile || {}),
-  };
+  device.role = replacedRole;
+  if (replacedRole === "owner") {
+    room.ownerDeviceId = deviceId;
+    device.profile = device.profile || {};
+  } else {
+    room.partnerDeviceId = deviceId;
+    device.profile = {
+      ...(room.partnerProfileDraft || {}),
+      ...(device.profile || {}),
+    };
+  }
 
   await store.deleteInvite(token);
   room.pendingInvite = null;
@@ -134,12 +157,21 @@ async function redeemInvite(store, { roomId, token, deviceId, pin }) {
   await store.putRoom(roomId, room);
   await store.putDevice(deviceId, device);
 
-  const ownerDevice = await store.getDevice(room.ownerDeviceId);
-  console.log(`[PAIRING] redeemInvite roomId=${roomId} newPartner=${deviceId}`);
+  // `herProfile` is the redeeming device's own profile and `hisProfile` is the other
+  // side's — see PairingRedeemActivity, which stores them as self/partner. So the
+  // counterpart is the slot that wasn't just replaced, not unconditionally the owner.
+  const counterpartId =
+    replacedRole === "owner" ? room.partnerDeviceId : room.ownerDeviceId;
+  const counterpart = counterpartId
+    ? await store.getDevice(counterpartId)
+    : null;
+  console.log(
+    `[PAIRING] redeemInvite roomId=${roomId} replaced=${replacedRole} newDevice=${deviceId}`,
+  );
   return {
     ok: true,
     herProfile: device.profile,
-    hisProfile: ownerDevice ? ownerDevice.profile : {},
+    hisProfile: counterpart ? counterpart.profile : {},
     replacedRole,
   };
 }

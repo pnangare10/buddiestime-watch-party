@@ -76,6 +76,11 @@ class RoomsHomeActivity : AppCompatActivity() {
             return
         }
 
+        // Re-register the push token on every start: onNewToken fires once per install
+        // and drops the token when no deviceId exists yet, so this is what actually
+        // guarantees the server has one. Cheap, idempotent, and off the main thread.
+        deviceIdentity.localDeviceId()?.let { FcmTokenRegistrar.register(it, api) }
+
         if (savedInstanceState == null) {
             Log.d(TAG, "cold start → showing love-note splash")
             showLoveNoteSplash()

@@ -106,6 +106,10 @@ class PairingRedeemActivity : AppCompatActivity() {
                     deviceIdentity.storeRoomId(rId)
                     profileStore.storeSelf(herProfile)
                     hisProfile?.let { profileStore.storePartner(it) }
+                    // Register the push token now that a deviceId and room exist. On a
+                    // fresh install onNewToken has usually already fired and been dropped,
+                    // so without this the device stays unreachable by nudges.
+                    FcmTokenRegistrar.register(deviceId, api)
                     goToHome()
                     return@runOnUiThread
                 }
