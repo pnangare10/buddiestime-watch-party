@@ -51,6 +51,67 @@ Forced updates are gated per-release rather than always-on because this app's fa
 protocol drift: two clients speaking different versions of the WebSocket protocol. Routine releases
 nudge; protocol-breaking releases force.
 
+## Phasing
+
+Design review found that the original single-shipment plan would make the first OTA release also
+the first exercise of an install path that had never run — with no working channel left to fix it
+if it failed. The work is therefore split, and **Phase 1 ships and is verified on hardware before
+Phase 2 begins**.
+
+### Phase 1 — stable identity (no OTA)
+
+1. **Fix `redeemInvite` to support owner recovery.** As written
+   ([pairing.js:122](../../../server/pairing.js)) it hardcodes `const replacedRole = "partner"` and always
+   assigns `room.partnerDeviceId`, despite a comment claiming it replaces "whichever side isn't the
+   requester". A reinstalled owner therefore cannot rejoin: its fresh `deviceId` can only land in
+   the partner slot, and `createRoom` cannot rebuild the room either because `reserveRoomName`
+   ([pairing.js:43](../../../server/pairing.js)) returns `room-name-taken` for the still-reserved name.
+   Without this fix the migration below abandons the room rather than costing one re-pair.
+2. **Register the release fingerprint before migrating.** `server.js:66` hardcodes the _debug_
+   certificate; release fingerprints reach `assetlinks.json` only through the `ANDROID_CERT_SHA256`
+   environment variable. Because `autoVerify="true"` fails silently, an unregistered release key
+   sends every `/pair/` invite to the browser — and the migration's recovery step depends on that
+   link working. Set the variable and confirm verification **before** uninstalling anything.
+3. **Register the FCM token explicitly** whenever a `deviceId` exists, rather than relying on the
+   one-shot `onNewToken` callback that currently drops it on first run. See Migration below — a
+   reinstall re-rolls the timing gamble this depends on today.
+4. **Migrate both phones** to the release keystore and verify pairing, invites, and nudges.
+
+### Phase 2 — OTA on top of a stable identity
+
+Everything below in this document, incorporating these review corrections:
+
+- **`BuildConfig.VERSION_CODE` does not exist.** AGP 8 does not generate `BuildConfig` unless
+  `buildFeatures { buildConfig true }` is set, and nothing sets it. Read the installed version from
+  `PackageManager.getPackageInfo(...).longVersionCode` instead, which avoids the build-config
+  dependency entirely.
+- **Use the `PackageInstaller` session API**, not `ACTION_VIEW`/`ACTION_INSTALL_PACKAGE`. The
+  intent-based path reports no result, so the client cannot distinguish "user cancelled" from
+  "signature mismatch" from "downgrade blocked" — which is exactly the information forced-update
+  recovery needs.
+- **`REQUEST_INSTALL_PACKAGES` is not a one-time grant.** Android 11+ auto-revokes it under app
+  hibernation. Re-check `canRequestPackageInstalls()` before _every_ install attempt.
+- **FileProvider authority must be `${applicationId}.fileprovider`.** This repo's `namespace`
+  (`com.buddiestime.watchparty`) differs from its `applicationId` (`com.fluffles.watchparty`), and
+  the manifest still carries a legacy `package` attribute, so deriving the authority from the
+  visible package name yields a runtime failure.
+- **Download from `browser_download_url`.** A release asset's `url` field returns JSON metadata
+  unless an octet-stream `Accept` header is sent.
+- **The server must refuse to emit a forcing flag** unless the release has a downloadable `.apk`
+  asset and `minSupported <= versionCode`, and an `OTA_DISABLED` kill switch must exist. A forced
+  update pointing at a missing or unusable APK is a two-device outage recoverable only from a
+  machine with `gh` access.
+- **The forced-update gate cannot live in one Activity.** `RoomsHomeActivity.onCreate` finishes and
+  jumps to `WelcomeSetupActivity` when unpaired, `maybeAutoJoin()` can launch `MainActivity` from a
+  poll, and `FcmService` and `PairingRedeemActivity` are independent entry points. The check belongs
+  in `Application.onCreate` with a shared result consulted by every launcher, and auto-join must be
+  suppressed while a forced update is pending.
+
+Two Phase 2 questions remain open and are deliberately not settled here: whether to replace the
+GitHub API proxy with a committed `app-version.json` (simpler, and `git revert` becomes the
+rollback), and whether forced updates should ship in the first OTA release at all rather than being
+added over the existing WebSocket once the plain update path is observed working.
+
 ## Design
 
 ### Signing and version identity
@@ -162,16 +223,50 @@ and is not considered verified until observed on a device.
 
 ## Migration
 
-Because the signing key changes, both phones need one reinstall:
+Because the signing key changes, both phones need one reinstall. The ordering below is
+load-bearing: steps 1–3 must all be verified before step 4, because each one is a prerequisite of
+the recovery path that step 5 depends on.
 
-1. Generate the release keystore; back it up; set the signing environment variables
-2. Build the release APK and publish it as the first GitHub release
-3. Uninstall the debug-signed app from both phones
-4. Install the release build; re-pair
+1. **Ship the `redeemInvite` owner-recovery fix** and confirm it against the live server. Without
+   it, step 5 cannot restore the owner.
+2. **Generate the release keystore**, back it up, and set the signing environment variables. The
+   developer holds the passwords; no tooling in this repo stores them.
+3. **Set `ANDROID_CERT_SHA256`** on Render to the release fingerprint and confirm App Link
+   verification passes (`pm get-app-links com.fluffles.watchparty` reports the domain as verified).
+4. **Migrate one phone at a time.** The partner's phone stays paired and functional while the
+   owner's is reinstalled, so it can mint the recovery invite. Uninstall, install the release
+   build, then redeem the invite minted from the still-paired phone.
+5. **Verify** pairing, invites, and a real nudge before migrating the second phone.
 
-Local state is only `deviceId` and `roomId`; the room, pairing, messages, and FCM token all live
-server-side in Upstash, so re-pairing restores everything that matters. This is the last reinstall
-required — every subsequent release updates in place.
+What is actually lost: `hwp_prefs` holds `device_id` and `paired_room_id` alongside `profile_self`,
+`profile_partner`, `cached_welcome_messages`, `cached_theme_mode`, and `cached_theme_value`, plus
+the selected service name. The cached entries are re-fetched from the room on next load, and
+profiles are restored from the room's stored copies, so recovery is genuinely complete — but the
+claim rests on the owner-recovery fix existing, not on the caches being unimportant.
+
+**The FCM token is a genuine risk in this migration, not a formality.** `FcmService.onNewToken`
+is the _only_ code path that ever sends a token to the server, and it drops the token outright when
+no local `deviceId` exists yet:
+
+```kotlin
+val deviceId = DeviceIdentity(prefs).localDeviceId() ?: run {
+    Log.w(TAG, "onNewToken: no local deviceId yet — dropping token, next getRoom/pairing flow will register it")
+    return
+}
+```
+
+No such "next getRoom/pairing flow" exists — nothing else calls `updateProfile` with an `fcmToken`.
+On a fresh install, whether the token survives depends purely on whether Firebase happens to mint
+it before or after the user finishes pairing. It survived on the current install by luck; a
+reinstall re-rolls that dice, and losing it breaks nudges **silently** — the sender still sees a
+success, exactly the failure already diagnosed and fixed once in this repo.
+
+Phase 1 therefore also registers the token explicitly: fetch the current token and PATCH it
+whenever a `deviceId` exists — on app start and immediately after pairing completes — keeping
+`onNewToken` as the refresh path. This is a small change that removes a silent failure the
+migration would otherwise gamble on, and a real nudge test remains part of step 5 to confirm it.
+
+This is the last reinstall required — every subsequent release updates in place.
 
 ## Out of scope
 
