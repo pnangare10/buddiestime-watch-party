@@ -12,6 +12,17 @@ if (file('google-services.json').exists()) {
     apply plugin: 'com.google.gms.google-services'
 }
 
+// Single source of truth for the app's version, bumped by android/release.sh and by nothing
+// else. Keeping it out of this file is what makes "forgot to bump versionCode" impossible:
+// the release script is the only writer, and an un-bumped build can't reach a release.
+def versionProps = new Properties()
+def versionPropsFile = rootProject.file('version.properties')
+if (versionPropsFile.exists()) {
+    versionPropsFile.withInputStream { versionProps.load(it) }
+}
+def appVersionCode = (versionProps['versionCode'] ?: '1').toString().toInteger()
+def appVersionName = (versionProps['versionName'] ?: '1.0').toString()
+
 android {
     namespace 'com.buddiestime.watchparty'
     compileSdk 34
@@ -20,8 +31,8 @@ android {
         applicationId "com.fluffles.watchparty"
         minSdk 24
         targetSdk 34
-        versionCode 1
-        versionName "1.0"
+        versionCode appVersionCode
+        versionName appVersionName
     }
 
     signingConfigs {

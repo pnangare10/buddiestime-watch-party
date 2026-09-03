@@ -81,6 +81,8 @@ class RoomsHomeActivity : AppCompatActivity() {
         // guarantees the server has one. Cheap, idempotent, and off the main thread.
         deviceIdentity.localDeviceId()?.let { FcmTokenRegistrar.register(it, api) }
 
+        UpdatePrompt.checkAndOffer(this, Config.baseHttpUrl())
+
         if (savedInstanceState == null) {
             Log.d(TAG, "cold start → showing love-note splash")
             showLoveNoteSplash()
@@ -223,6 +225,13 @@ class RoomsHomeActivity : AppCompatActivity() {
     // not-live → live transition so a user who backed out of the party isn't dragged
     // straight back in (that path leaves wasLiveParty=true, so no transition fires).
     private fun maybeAutoJoin() {
+        // A forced update means this build can no longer speak the room's protocol version.
+        // Auto-join would launch MainActivity straight over the update prompt and drop the
+        // user into a session that cannot work.
+        if (UpdateManager.forcedUpdatePending) {
+            Log.d(TAG, "auto-join suppressed — forced update pending")
+            return
+        }
         val live = liveStatus?.isLiveParty() == true
         if (live && !wasLiveParty) {
             wasLiveParty = true

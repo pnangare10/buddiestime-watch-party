@@ -12,6 +12,7 @@ const pairingStore =
     : require("./store");
 const pairing = require("./pairing");
 const push = require("./push");
+const { appVersion } = require("./appversion");
 const {
   parseStateUpdate,
   parseJoinContent,
@@ -164,6 +165,19 @@ async function handleHttp(req, res) {
     console.log(`[HTTP]   → /api/devices → deviceId=${deviceId}`);
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ deviceId }));
+    return;
+  }
+
+  // OTA update manifest. Always 200: "no update available" and "the check failed" are
+  // the same thing to a client, and a failing update check must never surface as an
+  // error the app has to handle.
+  if (req.method === "GET" && url.pathname === "/api/app-version") {
+    const manifest = await appVersion.get();
+    console.log(
+      `[HTTP]   → GET /api/app-version → ${JSON.stringify(manifest)}`,
+    );
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify(manifest));
     return;
   }
 

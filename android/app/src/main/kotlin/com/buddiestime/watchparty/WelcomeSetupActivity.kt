@@ -46,6 +46,11 @@ class WelcomeSetupActivity : AppCompatActivity() {
         FlufflesTheme.apply(this)
         setContentView(R.layout.activity_welcome_setup)
 
+        // RoomsHomeActivity finishes and lands here whenever the device isn't paired yet, so
+        // without this an unpaired phone — the state a fresh install is in — would never
+        // check for updates at all.
+        UpdatePrompt.checkAndOffer(this, Config.baseHttpUrl())
+
         val prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         deviceIdentity = DeviceIdentity(prefs)
         profileStore = ProfileStore(prefs)

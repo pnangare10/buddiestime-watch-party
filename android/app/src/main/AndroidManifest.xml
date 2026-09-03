@@ -6,6 +6,14 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.VIBRATE" />
+    <!--
+        Self-update over the network (see UpdateManager). This never installs silently:
+        the user must additionally allow this app as an install source in system settings,
+        and Android shows its own confirmation dialog for every install. The grant is also
+        revocable — Android 11+ clears it under app hibernation — so it is re-checked
+        before every attempt rather than once at setup.
+    -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <application
         android:allowBackup="true"
@@ -64,6 +72,11 @@
             android:configChanges="orientation|screenSize|keyboardHidden|screenLayout"
             android:exported="false"
             android:windowSoftInputMode="adjustResize" />
+
+        <!-- Receives PackageInstaller session results, including the STATUS_PENDING_USER_ACTION
+             intent that shows the system's install confirmation. Not exported: only the
+             platform delivers to it, via the PendingIntent we hand to session.commit(). -->
+        <receiver android:name=".UpdateInstallReceiver" android:exported="false" />
 
         <service android:name=".FcmService" android:exported="false">
             <intent-filter>
