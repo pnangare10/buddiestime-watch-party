@@ -66,6 +66,14 @@ const APP_LINK_PACKAGE = "com.fluffles.watchparty"; // applicationId, not the na
 // signed with it, so verification works on emulators without a release key.
 const DEBUG_CERT_SHA256 =
   "BA:B7:BA:89:D9:9D:E4:1D:E4:C5:D6:1E:12:20:92:EE:CF:67:F0:FA:9A:8A:B7:97:2E:0E:9F:6A:CD:6A:C3:40";
+// Release keystore (keys/fluffles-release.jks, generated 2026-09-03, valid to 2054).
+// Hardcoded rather than left to ANDROID_CERT_SHA256 because it must be live BEFORE the
+// keystore migration uninstalls anything: autoVerify fails silently, so an unregistered
+// release key sends every /pair/ invite to a browser — and the migration's recovery step
+// depends on that link working. A certificate fingerprint is public by construction; it
+// is served in this very file's assetlinks.json response, so this is not a secret.
+const RELEASE_CERT_SHA256 =
+  "0F:F4:25:8F:09:72:25:17:E7:FC:FF:3F:85:A4:97:43:36:5A:96:17:91:AF:B0:7B:84:6B:0C:E0:E3:2A:44:E5";
 
 /**
  * Release builds are signed with a key this repo does not carry, and Play App
@@ -78,7 +86,7 @@ function appLinkFingerprints() {
     .split(",")
     .map((s) => s.trim().toUpperCase())
     .filter(Boolean);
-  return [...new Set([DEBUG_CERT_SHA256, ...extra])];
+  return [...new Set([DEBUG_CERT_SHA256, RELEASE_CERT_SHA256, ...extra])];
 }
 
 function assetLinksBody() {
