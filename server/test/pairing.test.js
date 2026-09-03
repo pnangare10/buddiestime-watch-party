@@ -443,3 +443,126 @@ test("recovery: the room view is readable by the recovered owner and not by the 
   assert.strictEqual(asOld.ok, false, "the replaced device loses access");
   assert.strictEqual(asOld.reason, "forbidden");
 });
+test("recovery: a replaced owner inherits the lost device profile", async () => {
+  const store = makeFakeStore();
+  const { deviceId: hisId } = await pairing.createDevice(store);
+  const { deviceId: herId } = await pairing.createDevice(store);
+  const created = await pairing.createRoom(store, {
+    roomName: "ProfileInheritRoom",
+    ownerDeviceId: hisId,
+    ownerProfile: {
+      displayName: "Sonu",
+      petName: "Pranesh",
+      birthday: "10052000",
+    },
+    partnerProfileDraft: { displayName: "Komu" },
+  });
+  const inv1 = await pairing.mintInvite(store, {
+    roomId: created.roomId,
+    requestingDeviceId: hisId,
+  });
+  await pairing.redeemInvite(store, {
+    roomId: created.roomId,
+    token: inv1.token,
+    deviceId: herId,
+  });
+
+  // He reinstalls: brand-new device with no profile at all.
+  const inv2 = await pairing.mintInvite(store, {
+    roomId: created.roomId,
+    requestingDeviceId: herId,
+  });
+  const { deviceId: hisNewId } = await pairing.createDevice(store);
+  const redeemed = await pairing.redeemInvite(store, {
+    roomId: created.roomId,
+    token: inv2.token,
+    deviceId: hisNewId,
+  });
+
+  assert.strictEqual(redeemed.replacedRole, "owner");
+  assert.strictEqual(
+    redeemed.herProfile.displayName,
+    "Sonu",
+    "display name survives the reinstall",
+  );
+  assert.strictEqual(redeemed.herProfile.petName, "Pranesh");
+  assert.strictEqual(redeemed.herProfile.birthday, "10052000");
+
+  const stored = await store.getDevice(hisNewId);
+  assert.strictEqual(
+    stored.profile.displayName,
+    "Sonu",
+    "and is persisted, not just returned",
+  );
+});
+
+test("recovery: a replaced partner inherits the lost partner profile", async () => {
+  const store = makeFakeStore();
+  const { deviceId: hisId } = await pairing.createDevice(store);
+  const { deviceId: herId } = await pairing.createDevice(store);
+  const created = await pairing.createRoom(store, {
+    roomName: "PartnerInheritRoom",
+    ownerDeviceId: hisId,
+    ownerProfile: {},
+    partnerProfileDraft: { displayName: "Komu" },
+  });
+  const inv1 = await pairing.mintInvite(store, {
+    roomId: created.roomId,
+    requestingDeviceId: hisId,
+  });
+  await pairing.redeemInvite(store, {
+    roomId: created.roomId,
+    token: inv1.token,
+    deviceId: herId,
+  });
+  await pairing.updateDeviceProfile(store, {
+    deviceId: herId,
+    patch: { profile: { petName: "Kimal" } },
+  });
+
+  const inv2 = await pairing.mintInvite(store, {
+    roomId: created.roomId,
+    requestingDeviceId: hisId,
+  });
+  const { deviceId: herNewId } = await pairing.createDevice(store);
+  const redeemed = await pairing.redeemInvite(store, {
+    roomId: created.roomId,
+    token: inv2.token,
+    deviceId: herNewId,
+  });
+
+  assert.strictEqual(redeemed.replacedRole, "partner");
+  assert.strictEqual(
+    redeemed.herProfile.petName,
+    "Kimal",
+    "pet name survives the reinstall",
+  );
+  assert.strictEqual(redeemed.herProfile.displayName, "Komu");
+});
+
+test("a first join is unaffected: no prior device to inherit from", async () => {
+  const store = makeFakeStore();
+  const { deviceId: hisId } = await pairing.createDevice(store);
+  const { deviceId: herId } = await pairing.createDevice(store);
+  const created = await pairing.createRoom(store, {
+    roomName: "FirstJoinInheritRoom",
+    ownerDeviceId: hisId,
+    ownerProfile: { displayName: "Sonu" },
+    partnerProfileDraft: { displayName: "Komu" },
+  });
+  const inv = await pairing.mintInvite(store, {
+    roomId: created.roomId,
+    requestingDeviceId: hisId,
+  });
+  const redeemed = await pairing.redeemInvite(store, {
+    roomId: created.roomId,
+    token: inv.token,
+    deviceId: herId,
+  });
+
+  assert.strictEqual(
+    redeemed.herProfile.displayName,
+    "Komu",
+    "joiner gets the draft, not the owner profile",
+  );
+});

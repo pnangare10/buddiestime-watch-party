@@ -138,15 +138,31 @@ async function redeemInvite(store, { roomId, token, deviceId, pin }) {
       ? "owner"
       : "partner";
 
+  // On recovery, inherit the replaced device's profile. A reinstalled phone arrives with
+  // an empty profile and its old device record is orphaned by this swap, so without this
+  // the user silently loses their display name, pet name and birthday — observed for real
+  // during the keystore migration, where the recovered owner came back as "Hey  💗".
+  // Anything the new device already set wins, so this only fills gaps.
+  const replacedId =
+    replacedRole === "owner" ? room.ownerDeviceId : room.partnerDeviceId;
+  const replaced =
+    roomIsFull && replacedId && replacedId !== deviceId
+      ? await store.getDevice(replacedId)
+      : null;
+
   device.roomId = roomId;
   device.role = replacedRole;
   if (replacedRole === "owner") {
     room.ownerDeviceId = deviceId;
-    device.profile = device.profile || {};
+    device.profile = {
+      ...(replaced?.profile || {}),
+      ...(device.profile || {}),
+    };
   } else {
     room.partnerDeviceId = deviceId;
     device.profile = {
       ...(room.partnerProfileDraft || {}),
+      ...(replaced?.profile || {}),
       ...(device.profile || {}),
     };
   }
