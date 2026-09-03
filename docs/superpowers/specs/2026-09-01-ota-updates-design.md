@@ -268,6 +268,32 @@ migration would otherwise gamble on, and a real nudge test remains part of step 
 
 This is the last reinstall required — every subsequent release updates in place.
 
+## As built (Phase 2, verified 2026-09-03)
+
+Two design changes were made during implementation, both removing failure modes:
+
+- **No `FileProvider`, no `DownloadManager`, no external storage.** The client downloads with
+  OkHttp into app-private cache and installs through the `PackageInstaller` session API, which
+  streams the bytes directly. This removes the content:// authority footgun (this module's
+  `namespace` and `applicationId` differ), the external-storage TOCTOU window, and gives the
+  install a result callback the Intent-based path cannot provide.
+- **`buildConfig` was never enabled.** Installed version comes from
+  `PackageManager.getPackageInfo().longVersionCode`.
+
+**Play Protect is an unavoidable extra step, and the spec did not account for it.** On a device
+with Play Services, a sideloaded install shows "App scan recommended" → _Scan app_ → "This app
+looks safe" → _Install_, on top of the system's own "Do you want to update this app?" dialog.
+The end-to-end run took **four** user taps, not two. This is Google's flow, not something the app
+can suppress or skip. Both real phones will see it on every update.
+
+Verified end to end on an emulator against a local stub serving a manifest and an APK:
+update detected → prompt shown → APK downloaded → install session committed → system
+confirmation → Play Protect → `install succeeded` → app relaunched with
+`hasDevice=true hasRoom=true`, i.e. **local data survived the update**.
+
+Not yet exercised: a real GitHub Release (none published), and the forced-update path
+(`min-supported`), which is covered by server-side unit tests but has not run on a device.
+
 ## Out of scope
 
 - Publishing to the Play Store
