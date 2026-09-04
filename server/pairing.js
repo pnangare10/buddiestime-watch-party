@@ -9,6 +9,12 @@ function newToken() {
   return crypto.randomBytes(24).toString("base64url");
 }
 
+// An unredeemed invite used to live forever. That matters more than it looks: on a full
+// room a redeem doesn't just fill a slot, it *replaces* the device that didn't mint the
+// token (see redeemInvite), so a stale link left in a chat thread is a standing key to
+// evict a paired phone. Fifteen minutes is well over the real flow — mint, send, tap.
+const INVITE_TTL_MS = 15 * 60 * 1000;
+
 async function createDevice(store) {
   const deviceId = newId();
   await store.putDevice(deviceId, {
@@ -114,6 +120,19 @@ async function redeemInvite(store, { roomId, token, deviceId, pin }) {
   if (!invite || invite.roomId !== roomId)
     return { ok: false, reason: "invalid-token" };
 
+  // Expired invites report 'already-used' rather than a new reason code: v1.2 is already
+  // in the field and its redeem screen falls through on an unknown reason, and "ask your
+  // partner to send a new one" is exactly the right instruction here anyway.
+  const createdAt = room.pendingInvite.createdAt || 0;
+  if (Date.now() - createdAt > INVITE_TTL_MS) {
+    await store.deleteInvite(token);
+    room.pendingInvite = null;
+    room.updatedAt = Date.now();
+    await store.putRoom(roomId, room);
+    console.warn(`[PAIRING] redeemInvite roomId=${roomId} — invite expired`);
+    return { ok: false, reason: "already-used" };
+  }
+
   if (room.pendingInvite.pin && room.pendingInvite.pin !== pin) {
     console.warn(`[PAIRING] redeemInvite roomId=${roomId} — PIN mismatch`);
     return { ok: false, reason: "pin-mismatch" };
@@ -165,6 +184,15 @@ async function redeemInvite(store, { roomId, token, deviceId, pin }) {
       ...(replaced?.profile || {}),
       ...(device.profile || {}),
     };
+  }
+
+  // The replaced device is no longer in the room, but its own record still pointed at it.
+  // Left stale, that device reports itself as paired while every membership check on the
+  // server rejects it — an un-diagnosable half-joined state. Release it so it can pair again.
+  if (replaced && replacedId) {
+    replaced.roomId = null;
+    replaced.role = null;
+    await store.putDevice(replacedId, replaced);
   }
 
   await store.deleteInvite(token);

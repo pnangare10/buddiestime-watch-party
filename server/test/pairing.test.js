@@ -566,3 +566,104 @@ test("a first join is unaffected: no prior device to inherit from", async () => 
     "joiner gets the draft, not the owner profile",
   );
 });
+
+test("an invite older than the TTL is refused", async () => {
+  const store = makeFakeStore();
+  const { deviceId: hisId } = await pairing.createDevice(store);
+  const { deviceId: herId } = await pairing.createDevice(store);
+  const created = await pairing.createRoom(store, {
+    roomName: "ExpiryRoom",
+    ownerDeviceId: hisId,
+    ownerProfile: {},
+    partnerProfileDraft: {},
+  });
+  const inv = await pairing.mintInvite(store, {
+    roomId: created.roomId,
+    requestingDeviceId: hisId,
+  });
+
+  // Backdate the mint past the 15-minute TTL.
+  const room = await store.getRoom(created.roomId);
+  room.pendingInvite.createdAt = Date.now() - 16 * 60 * 1000;
+  await store.putRoom(created.roomId, room);
+
+  const redeemed = await pairing.redeemInvite(store, {
+    roomId: created.roomId,
+    token: inv.token,
+    deviceId: herId,
+  });
+  assert.strictEqual(redeemed.ok, false);
+  assert.strictEqual(redeemed.reason, "already-used");
+
+  const after = await store.getRoom(created.roomId);
+  assert.strictEqual(after.pendingInvite, null, "expired invite is cleared");
+  assert.strictEqual(after.partnerDeviceId, null, "and no slot was filled");
+});
+
+test("an invite inside the TTL still redeems", async () => {
+  const store = makeFakeStore();
+  const { deviceId: hisId } = await pairing.createDevice(store);
+  const { deviceId: herId } = await pairing.createDevice(store);
+  const created = await pairing.createRoom(store, {
+    roomName: "FreshInviteRoom",
+    ownerDeviceId: hisId,
+    ownerProfile: {},
+    partnerProfileDraft: {},
+  });
+  const inv = await pairing.mintInvite(store, {
+    roomId: created.roomId,
+    requestingDeviceId: hisId,
+  });
+  const room = await store.getRoom(created.roomId);
+  room.pendingInvite.createdAt = Date.now() - 14 * 60 * 1000;
+  await store.putRoom(created.roomId, room);
+
+  const redeemed = await pairing.redeemInvite(store, {
+    roomId: created.roomId,
+    token: inv.token,
+    deviceId: herId,
+  });
+  assert.strictEqual(redeemed.ok, true);
+});
+
+test("recovery releases the replaced device instead of orphaning it", async () => {
+  const store = makeFakeStore();
+  const { deviceId: hisId } = await pairing.createDevice(store);
+  const { deviceId: herId } = await pairing.createDevice(store);
+  const created = await pairing.createRoom(store, {
+    roomName: "OrphanRoom",
+    ownerDeviceId: hisId,
+    ownerProfile: { displayName: "Sonu" },
+    partnerProfileDraft: {},
+  });
+  const inv1 = await pairing.mintInvite(store, {
+    roomId: created.roomId,
+    requestingDeviceId: hisId,
+  });
+  await pairing.redeemInvite(store, {
+    roomId: created.roomId,
+    token: inv1.token,
+    deviceId: herId,
+  });
+
+  const inv2 = await pairing.mintInvite(store, {
+    roomId: created.roomId,
+    requestingDeviceId: herId,
+  });
+  const { deviceId: hisNewId } = await pairing.createDevice(store);
+  const redeemed = await pairing.redeemInvite(store, {
+    roomId: created.roomId,
+    token: inv2.token,
+    deviceId: hisNewId,
+  });
+  assert.strictEqual(redeemed.replacedRole, "owner");
+
+  const oldOwner = await store.getDevice(hisId);
+  assert.strictEqual(oldOwner.roomId, null, "old owner is released from the room");
+  assert.strictEqual(oldOwner.role, null);
+  // and is therefore free to pair somewhere else rather than being wedged
+  assert.strictEqual(
+    (await store.getRoom(created.roomId)).ownerDeviceId,
+    hisNewId,
+  );
+});
