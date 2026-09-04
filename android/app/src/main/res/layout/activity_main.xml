@@ -6,11 +6,89 @@
     android:layout_height="match_parent"
     android:background="#000000">
 
-    <!-- Hotstar website in full-screen WebView -->
-    <WebView
-        android:id="@+id/webView"
+    <!--
+        The page, with an optional address bar stacked above it.
+
+        The WebView is wrapped in a vertical LinearLayout (rather than the bar being
+        another gravity-positioned child of the root FrameLayout) so the bar *takes
+        layout space* instead of covering the top of the page. Every other child of the
+        root keeps positioning itself with layout_gravity and is unaffected; the
+        fullscreen container and the chat overlay still come later in the file and so
+        still draw on top.
+    -->
+    <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+        android:layout_height="match_parent"
+        android:orientation="vertical">
+
+        <!-- Address bar — visible only for the Browse service (see MainActivity). -->
+        <LinearLayout
+            android:id="@+id/browseBar"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:background="@color/plum_surface"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="4dp"
+            android:paddingEnd="4dp"
+            android:visibility="gone">
+
+            <TextView
+                android:id="@+id/btnBrowseBack"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:contentDescription="Back"
+                android:gravity="center"
+                android:text="←"
+                android:textColor="@color/cream"
+                android:textSize="20sp" />
+
+            <EditText
+                android:id="@+id/etBrowseUrl"
+                android:layout_width="0dp"
+                android:layout_height="38dp"
+                android:layout_weight="1"
+                android:background="@drawable/bg_chat_input"
+                android:hint="search or type a link"
+                android:imeOptions="actionGo"
+                android:importantForAutofill="no"
+                android:inputType="textUri"
+                android:maxLines="1"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
+                android:selectAllOnFocus="true"
+                android:singleLine="true"
+                android:textColor="@color/cream"
+                android:textColorHint="@color/lavender_mist"
+                android:textSize="14sp" />
+
+            <TextView
+                android:id="@+id/btnBrowseReload"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:contentDescription="Reload"
+                android:gravity="center"
+                android:text="⟳"
+                android:textColor="@color/cream"
+                android:textSize="19sp" />
+
+            <TextView
+                android:id="@+id/btnBrowseGo"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:contentDescription="Go"
+                android:gravity="center"
+                android:text="→"
+                android:textColor="@color/accent_blush"
+                android:textSize="20sp" />
+        </LinearLayout>
+
+        <WebView
+            android:id="@+id/webView"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1" />
+    </LinearLayout>
 
     <!-- Full-screen video container (used when Hotstar enters fullscreen mode) -->
     <FrameLayout

@@ -127,6 +127,20 @@ class WatchPartyManager(
             put("platform", p.platform); put("videoUrl", p.videoUrl); put("displayName", p.displayName)
             if (!p.deviceId.isNullOrBlank()) put("deviceId", p.deviceId)
         }
+
+        /**
+         * A string field, with JSON null read as absent.
+         *
+         * `JSONObject.optString("k", "")` does **not** return the fallback when the key
+         * holds a JSON null — it returns the four-character string "null". The server
+         * stores `videoUrl: null` for a room with no content yet, so every consumer of
+         * `optString("videoUrl", "")` was receiving "null" and treating it as a real
+         * value. That read as a harmless log oddity right up until the service started
+         * being derived from the URL, at which point "null" matched no known host and
+         * silently forced Browse mode onto whatever the user had actually picked.
+         */
+        internal fun optStringOrEmpty(msg: JSONObject, key: String): String =
+            if (msg.isNull(key)) "" else msg.optString(key, "")
     }
 
     private fun openSocket(p: JoinParams, gen: Int) {
@@ -194,8 +208,8 @@ class WatchPartyManager(
                     onSyncCommand(
                         msg.optDouble("time", 0.0),
                         msg.optBoolean("paused", true),
-                        msg.optString("videoUrl", ""),
-                        msg.optString("platform", "")
+                        optStringOrEmpty(msg, "videoUrl"),
+                        optStringOrEmpty(msg, "platform")
                     )
                 }
             }
@@ -214,8 +228,8 @@ class WatchPartyManager(
                 onSyncCommand(
                     msg.optDouble("time", 0.0),
                     msg.optBoolean("paused", true),
-                    msg.optString("videoUrl", ""),
-                    msg.optString("platform", "")
+                    optStringOrEmpty(msg, "videoUrl"),
+                    optStringOrEmpty(msg, "platform")
                 )
             }
             "chat" -> {
