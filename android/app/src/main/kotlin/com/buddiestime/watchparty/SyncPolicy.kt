@@ -27,6 +27,21 @@ object SyncPolicy {
     const val RELOAD_COOLDOWN_MS = 15_000L
 
     /**
+     * The same guard, shortened for [BrowseService].
+     *
+     * On the four fixed services a host changes content rarely — picking a new episode is
+     * a deliberate act — so a long cooldown costs nothing and is the cheapest possible
+     * loop-breaker. Browsing the open web inverts that: the host moves search → site →
+     * episode → next episode in seconds, and at 15s the guest follows only the *first*
+     * of those and then sits on a stale page while the host is two pages further on,
+     * with nothing in the UI to say why.
+     *
+     * Three seconds still breaks a reload loop (a loop re-fires immediately, not after
+     * seconds) while keeping the guest within one navigation of the host.
+     */
+    const val BROWSE_RELOAD_COOLDOWN_MS = 3_000L
+
+    /**
      * Query params that change while the same video plays, or that carry no content
      * identity. Comparing raw URLs across these is what made the guest reload the page
      * instead of syncing — `?t=` alone ticks constantly on Hotstar and Prime.
@@ -118,6 +133,7 @@ object SyncPolicy {
         guestUrl: String,
         lastReloadAtMs: Long,
         nowMs: Long,
+        cooldownMs: Long = RELOAD_COOLDOWN_MS,
     ): Boolean {
         if (hostUrl.isBlank()) return false
         // Checked before anything else: normalizeUrl() returns a non-http string
@@ -125,7 +141,11 @@ object SyncPolicy {
         // guest's URL and every other guard below would wave it through to loadUrl.
         if (!isNavigable(hostUrl)) return false
         if (guestUrl.isNotBlank() && isSameContent(hostUrl, guestUrl)) return false
-        if (lastReloadAtMs > 0L && nowMs - lastReloadAtMs < RELOAD_COOLDOWN_MS) return false
+        if (lastReloadAtMs > 0L && nowMs - lastReloadAtMs < cooldownMs) return false
         return true
     }
+
+    /** The reload cooldown appropriate to [platform]. See [BROWSE_RELOAD_COOLDOWN_MS]. */
+    fun reloadCooldownFor(platform: String?): Long =
+        if (platform == BrowseService.name) BROWSE_RELOAD_COOLDOWN_MS else RELOAD_COOLDOWN_MS
 }

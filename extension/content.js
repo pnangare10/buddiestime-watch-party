@@ -18,6 +18,26 @@ let platform  = null;
 // but allows redirect when host switches to a genuinely different video
 let lastRedirectedUrl = null;
 
+// Domains this extension is actually injected into (mirrors content_scripts.matches
+// in manifest.json). A content script cannot read its own match patterns, so this is
+// kept in step by hand.
+const INJECTABLE_HOSTS = [
+  'hotstar.com', 'jiohotstar.com', 'youtube.com',
+  'primevideo.com', 'amazon.com', 'amazon.in', 'netflix.com',
+];
+
+// Whether this content script would still exist after navigating to videoUrl.
+// The Android app can host a party from ANY site now (the Browse service), so videoUrl
+// is no longer guaranteed to be a streaming service. Navigating this tab off-allowlist
+// unloads the page and never re-injects content.js: the socket dies with it and the
+// pendingJoin reconnect has no script left to run it, stranding the guest desynced on
+// a random page with no explanation. Staying put keeps the socket — and play/pause on
+// whatever is already open — alive.
+function isInjectableUrl(videoUrl) {
+  const host = String(videoUrl || '').split('/')[0].split('?')[0].toLowerCase();
+  return INJECTABLE_HOSTS.some(d => host === d || host.endsWith('.' + d));
+}
+
 const DRIFT_THRESHOLD = 2; // seconds — correct guest if drift exceeds this
 
 const log = (...args) => console.log('[HWP]', ...args);
@@ -106,7 +126,9 @@ function handleServerMessage(msg) {
     if (role === 'guest' && msg.videoUrl) {
       const currentUrl = window.location.hostname + window.location.pathname + window.location.search;
       log(`guest URL check: currentUrl="${currentUrl}" hostUrl="${msg.videoUrl}" lastRedirectedUrl="${lastRedirectedUrl}"`);
-      if (msg.videoUrl !== currentUrl && msg.videoUrl !== lastRedirectedUrl) {
+      if (msg.videoUrl !== currentUrl && !isInjectableUrl(msg.videoUrl)) {
+        warn(`host is on ${msg.videoUrl} — this extension does not run there; staying put so sync survives`);
+      } else if (msg.videoUrl !== currentUrl && msg.videoUrl !== lastRedirectedUrl) {
         log(`URLs differ — redirecting to https://${msg.videoUrl}`);
         lastRedirectedUrl = msg.videoUrl;
         chrome.storage.local.set({ pendingJoin: { serverUrl, roomId, clientId, platform } });
@@ -146,7 +168,9 @@ function handleServerMessage(msg) {
 
     // If host switched to a different video, redirect
     const currentUrl = window.location.hostname + window.location.pathname + window.location.search;
-    if (msg.videoUrl && msg.videoUrl !== currentUrl && msg.videoUrl !== lastRedirectedUrl) {
+    if (msg.videoUrl && msg.videoUrl !== currentUrl && !isInjectableUrl(msg.videoUrl)) {
+      warn(`host switched to ${msg.videoUrl} — this extension does not run there; staying put so sync survives`);
+    } else if (msg.videoUrl && msg.videoUrl !== currentUrl && msg.videoUrl !== lastRedirectedUrl) {
       log(`host switched video — redirecting to https://${msg.videoUrl}`);
       lastRedirectedUrl = msg.videoUrl;
       chrome.storage.local.set({ pendingJoin: { serverUrl, roomId, clientId, platform } });

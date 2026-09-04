@@ -18,6 +18,9 @@ import android.view.MenuItem
 import android.view.MotionEvent
 import android.view.View
 import android.webkit.*
+import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.InputMethodManager
+import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.TextView
 import android.widget.Toast
@@ -31,6 +34,7 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.textfield.TextInputLayout
+import java.net.URI
 
 private const val TAG = "HWP-MAIN"
 private const val PREFS = "hwp_prefs"
@@ -56,6 +60,27 @@ class MainActivity : AppCompatActivity() {
     private lateinit var fullscreenContainer: FrameLayout
     private lateinit var prefs: SharedPreferences
 
+    // ── Browse-mode address bar ───────────────────────────────────────────────
+    private lateinit var browseBar: View
+    private lateinit var etBrowseUrl: EditText
+
+    /**
+     * True while this device is showing the open web rather than a fixed service.
+     *
+     * Two independent ways to be here, and both are needed:
+     *  - we launched into Browse ourselves (`currentService`), or
+     *  - the page we are actually on is not one of the four services ([isOpenWebUrl]).
+     *
+     * The second clause is not belt-and-braces. A room's `platform` is frozen when the
+     * room is created (see [isOpenWebUrl]'s comment), so a guest in an established
+     * "hotstar" room is told `platform="hotstar"` even while the host browses the open
+     * web — leaving it navigated onto an unknown domain with no address bar and the
+     * pop-under guard off. Asking the page closes that hole without a server change.
+     */
+    private val isBrowseMode: Boolean
+        get() = currentService?.name == BrowseService.name ||
+                isOpenWebUrl(jsPageUrl.ifBlank { currentPageUrl })
+
     private var fullscreenView: View? = null
     private var fullscreenCallback: WebChromeClient.CustomViewCallback? = null
 
@@ -70,6 +95,15 @@ class MainActivity : AppCompatActivity() {
 
     /** elapsedRealtime of the last navigation we forced, to keep reloads from looping. */
     private var lastReloadAt: Long = 0L
+
+    /**
+     * The URL of that last forced navigation. Retrying the *same* target is the shape a
+     * reload loop actually takes — we navigate, the site bounces us somewhere else, the
+     * host's URL still differs, and we navigate again. Distinguishing "a new page the
+     * host moved to" from "the page we already failed to land on" lets the first be fast
+     * and the second stay slow, instead of one timer having to serve both.
+     */
+    private var lastReloadUrl: String = ""
 
     @Volatile private var currentPageUrl: String = ""
 
@@ -303,6 +337,9 @@ class MainActivity : AppCompatActivity() {
         fun onUrlChange(url: String) {
             Log.d(TAG, "JsBridge.onUrlChange url=$url")
             jsPageUrl = url
+            // JS sees SPA pushState navigation that onPageFinished never fires for, so
+            // this is the only thing that keeps the address bar honest on such sites.
+            runOnUiThread { applyBrowseBarVisibility(); syncAddressBar(url); rememberBrowseUrl(url) }
         }
     }
 
@@ -326,6 +363,9 @@ class MainActivity : AppCompatActivity() {
         tvStatus = findViewById(R.id.tvStatus)
         tvChatBadge = findViewById(R.id.tvChatBadge)
         fullscreenContainer = findViewById(R.id.fullscreenContainer)
+        browseBar = findViewById(R.id.browseBar)
+        etBrowseUrl = findViewById(R.id.etBrowseUrl)
+        setupBrowseBar()
 
         chatOverlay = ChatOverlayController(
             overlayRoot = findViewById(R.id.chatOverlay),
@@ -372,6 +412,7 @@ class MainActivity : AppCompatActivity() {
         setupMicButton()
 
         val startUrl = intent.getStringExtra("hwp_url") ?: currentService?.url ?: "https://www.hotstar.com"
+        syncAddressBar(startUrl)
         currentService?.let { service -> webView.loadUrl(startUrl, service.headersOverride) }
             ?: webView.loadUrl(startUrl, mapOf("X-Requested-With" to ""))
 
@@ -400,8 +441,12 @@ class MainActivity : AppCompatActivity() {
             mediaPlaybackRequiresUserGesture = false
             userAgentString = currentService?.userAgent
                 ?: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-            useWideViewPort = false
-            loadWithOverviewMode = false
+            // The four fixed services are pinned to a desktop viewport because that is
+            // what their web players expect. An arbitrary site is the opposite case:
+            // it ships a <meta viewport> and expects it to be honoured, and ignoring
+            // that is what renders a mobile page zoomed into its top-left corner.
+            useWideViewPort = isBrowseMode
+            loadWithOverviewMode = isBrowseMode
             allowFileAccess = false
         }
 
@@ -415,6 +460,10 @@ class MainActivity : AppCompatActivity() {
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 if (request.isForMainFrame && !request.isRedirect) {
+                    if (isPopUnder(request)) {
+                        Log.d(TAG, "browse: blocked pop-under → ${request.url}")
+                        return true   // swallowed: no navigation, no new window
+                    }
                     view.loadUrl(request.url.toString(), currentService?.headersOverride ?: mapOf("X-Requested-With" to ""))
                     return true
                 }
@@ -423,11 +472,18 @@ class MainActivity : AppCompatActivity() {
 
             override fun doUpdateVisitedHistory(view: WebView, url: String, isReload: Boolean) {
                 currentPageUrl = url
+                syncAddressBar(url)
                 super.doUpdateVisitedHistory(view, url, isReload)
             }
 
             override fun onPageFinished(view: WebView, url: String) {
                 currentPageUrl = url
+                // isBrowseMode is URL-derived, so the chrome has to be re-evaluated on
+                // every navigation — this is what makes the address bar appear for a
+                // guest that a host has pulled off a fixed service onto the open web.
+                applyBrowseBarVisibility()
+                syncAddressBar(url)
+                rememberBrowseUrl(url)
                 Log.d(TAG, "onPageFinished url=$url")
                 view.evaluateJavascript("""
                     (function() {
@@ -460,6 +516,7 @@ class MainActivity : AppCompatActivity() {
                 fullscreenContainer.addView(view)
                 fullscreenContainer.visibility = View.VISIBLE
                 webView.visibility = View.GONE
+                applyBrowseBarVisibility()   // fullscreenView is set → hides the bar
                 hideSystemUi()
                 chatOverlay.bringToFront()
                 fabChat.bringToFront()
@@ -472,12 +529,99 @@ class MainActivity : AppCompatActivity() {
                 fullscreenCallback = null
                 fullscreenContainer.visibility = View.GONE
                 webView.visibility = View.VISIBLE
+                applyBrowseBarVisibility()
                 showSystemUi()
                 chatOverlay.bringToFront()
                 fabChat.bringToFront()
                 tvChatBadge.bringToFront()
             }
         }
+    }
+
+    // ── Browse mode ───────────────────────────────────────────────────────────
+
+    private fun setupBrowseBar() {
+        Log.d(TAG, "setupBrowseBar() browseMode=$isBrowseMode")
+        applyBrowseBarVisibility()
+
+        findViewById<TextView>(R.id.btnBrowseBack).setOnClickListener {
+            if (webView.canGoBack()) webView.goBack() else Log.d(TAG, "browse back: nothing to go back to")
+        }
+        findViewById<TextView>(R.id.btnBrowseReload).setOnClickListener { webView.reload() }
+        findViewById<TextView>(R.id.btnBrowseGo).setOnClickListener { navigateFromAddressBar() }
+        etBrowseUrl.setOnEditorActionListener { _, actionId, _ ->
+            if (actionId == EditorInfo.IME_ACTION_GO) { navigateFromAddressBar(); true } else false
+        }
+    }
+
+    /** The bar exists only for the open-web service, and never over a fullscreen video. */
+    private fun applyBrowseBarVisibility() {
+        val show = isBrowseMode && fullscreenView == null
+        browseBar.visibility = if (show) View.VISIBLE else View.GONE
+    }
+
+    private fun navigateFromAddressBar() {
+        val typed = etBrowseUrl.text?.toString().orEmpty()
+        val url = BrowseUrl.resolve(typed)
+        Log.d(TAG, "navigateFromAddressBar typed=\"$typed\" → ${url ?: "(blank, ignored)"}")
+        if (url == null) return
+        etBrowseUrl.clearFocus()
+        hideKeyboard()
+        loadPage(url)
+    }
+
+    /** Single funnel for every navigation we initiate, so headers stay consistent. */
+    private fun loadPage(url: String) {
+        webView.loadUrl(url, currentService?.headersOverride ?: mapOf("X-Requested-With" to ""))
+    }
+
+    private fun hideKeyboard() {
+        val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+        imm?.hideSoftInputFromWindow(etBrowseUrl.windowToken, 0)
+    }
+
+    /**
+     * Mirror the page's URL into the address bar.
+     *
+     * Skipped while the field has focus: the user is mid-way through typing a new
+     * destination, and a background SPA navigation overwriting that mid-keystroke is
+     * the single most irritating bug a phone browser can have.
+     */
+    private fun syncAddressBar(url: String) {
+        if (!isBrowseMode || url.isBlank()) return
+        if (etBrowseUrl.hasFocus()) return
+        if (etBrowseUrl.text?.toString() == url) return
+        etBrowseUrl.setText(url)
+    }
+
+    /** Remember where Browse was, so the next entry resumes rather than restarting. */
+    private fun rememberBrowseUrl(url: String) {
+        if (!isBrowseMode || !BrowseUrl.isWorthRemembering(url)) return
+        prefs.edit().putString(KEY_LAST_BROWSE_URL, url).apply()
+    }
+
+    /**
+     * A navigation that no one asked for, heading somewhere else entirely.
+     *
+     * Deliberately narrow: only in browse mode, only main-frame, only when the platform
+     * says there was **no user gesture**, and only when the destination host differs
+     * from the page we are on. That combination is a pop-under; a same-host redirect
+     * (login hops, CDN bounces) and anything the user actually tapped are untouched.
+     *
+     * It does *not* stop a click-triggered interstitial — that was a real gesture and is
+     * indistinguishable from a real click. The address bar's Back button is the answer
+     * to those. The four fixed services never reach this at all.
+     */
+    private fun isPopUnder(request: WebResourceRequest): Boolean {
+        if (!isBrowseMode) return false
+        if (request.hasGesture()) return false
+        val target = request.url?.host?.removePrefix("www.")?.lowercase() ?: return false
+        val current = try {
+            URI(currentPageUrl.ifBlank { jsPageUrl }).host?.removePrefix("www.")?.lowercase()
+        } catch (e: Exception) {
+            null
+        } ?: return false   // nothing to compare against yet — let it through
+        return target != current
     }
 
     // ── Party management ──────────────────────────────────────────────────────
@@ -552,16 +696,47 @@ class MainActivity : AppCompatActivity() {
                     val newService = getStreamingService(platform)
                     currentService = newService
                     webView.settings.userAgentString = newService.userAgent
+                    // A guest that started on a fixed service and is being pulled onto
+                    // the open web needs the browse chrome to appear (and the viewport
+                    // rules that go with it) — and the reverse on the way back.
+                    webView.settings.useWideViewPort = isBrowseMode
+                    webView.settings.loadWithOverviewMode = isBrowseMode
+                    applyBrowseBarVisibility()
+                    Log.d(TAG, "sync: switched service → ${newService.name} browseMode=$isBrowseMode")
                 }
                 // Prefer the JS-reported URL: currentPageUrl lags behind SPA navigation, and
                 // treating that lag as "different video" used to replace every sync with a
                 // page reload — which then re-applied a position stale by the whole load.
                 val guestUrl = jsPageUrl.ifBlank { currentPageUrl }
                 val now = SystemClock.elapsedRealtime()
-                if (SyncPolicy.shouldReload(videoUrl, guestUrl, lastReloadAt, now)) {
-                    Log.d(TAG, "sync: host on different content → navigating (host=$videoUrl guest=$guestUrl)")
+
+                // A host on the open web can pull us onto a domain the room's frozen
+                // `platform` knows nothing about. Adopt the browse user-agent and
+                // viewport *before* navigating, so the page loads as a phone page
+                // rather than a desktop one squeezed onto a phone screen.
+                if (isOpenWebUrl(videoUrl) && webView.settings.userAgentString != BrowseService.userAgent) {
+                    Log.d(TAG, "sync: host is on the open web → adopting browse UA/viewport")
+                    webView.settings.userAgentString = BrowseService.userAgent
+                    webView.settings.useWideViewPort = true
+                    webView.settings.loadWithOverviewMode = true
+                }
+
+                // Browsing the open web changes content far more often than picking an
+                // episode does, so the anti-loop cooldown is shortened there — at 15s a
+                // guest follows only the host's first hop and then sits on a stale page.
+                // But a *repeat* of a target we already tried is the signature of a
+                // redirect chain fighting us, and that keeps the long cooldown.
+                val retryingSameTarget = lastReloadUrl.isNotBlank() &&
+                        SyncPolicy.isSameContent(videoUrl, lastReloadUrl)
+                val effectivePlatform =
+                    if (isBrowseMode && !retryingSameTarget) BrowseService.name else currentService?.name
+                val cooldown = SyncPolicy.reloadCooldownFor(effectivePlatform)
+
+                if (SyncPolicy.shouldReload(videoUrl, guestUrl, lastReloadAt, now, cooldown)) {
+                    Log.d(TAG, "sync: host on different content → navigating (host=$videoUrl guest=$guestUrl cooldown=${cooldown}ms retry=$retryingSameTarget)")
                     lastReloadAt = now
-                    webView.loadUrl(videoUrl, currentService?.headersOverride ?: mapOf("X-Requested-With" to ""))
+                    lastReloadUrl = videoUrl
+                    loadPage(videoUrl)
                 } else {
                     webView.evaluateJavascript("HWP_applyHostState($time, $paused)", null)
                 }
@@ -680,6 +855,7 @@ class MainActivity : AppCompatActivity() {
         lastSyncPaused = null
         lastSyncReceivedAt = 0L
         lastReloadAt = 0L
+        lastReloadUrl = ""
         tvStatus.visibility = View.GONE
         fabChat.visibility = View.GONE
         fabMic.visibility = View.GONE
@@ -703,6 +879,11 @@ class MainActivity : AppCompatActivity() {
     private fun endParty() {
         Log.d(TAG, "endParty()")
         manager?.sendLeaveParty()
+        // Ending the night clears the room's stored video everywhere else, so the
+        // remembered browse page has to go too. Left behind, the next Browse would
+        // reopen last night's page and — because the start URL seeds the join's
+        // videoUrl — re-broadcast it as this room's state to whoever joins next.
+        prefs.edit().remove(KEY_LAST_BROWSE_URL).apply()
         leaveParty()
         goHomeToStartNewParty()
     }
@@ -748,6 +929,7 @@ class MainActivity : AppCompatActivity() {
             webView.canGoBack() -> webView.goBack()
             else -> super.onBackPressed()
         }
+        applyBrowseBarVisibility()
     }
 
     // onDestroy is defined below with voice-manager cleanup.

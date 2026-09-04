@@ -186,6 +186,60 @@
             </com.google.android.material.card.MaterialCardView>
         </LinearLayout>
 
+        <!--
+            Browse spans the full width rather than joining the 2x2 grid: it is not a
+            fifth brand, it is the "anywhere else" option, and a lone card on a third
+            row reads that way instead of leaving a lopsided gap.
+        -->
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/cardBrowse"
+            android:layout_width="match_parent"
+            android:layout_height="96dp"
+            android:layout_margin="6dp"
+            android:clickable="true"
+            android:focusable="true"
+            app:cardBackgroundColor="@color/plum_surface"
+            app:cardCornerRadius="24dp"
+            app:cardElevation="4dp"
+            app:rippleColor="@color/plum_surface_hi"
+            app:strokeColor="#40C9A8F7"
+            app:strokeWidth="1dp">
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:gravity="center"
+                android:orientation="horizontal"
+                android:paddingStart="20dp"
+                android:paddingEnd="20dp">
+                <ImageView
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:contentDescription="Browse"
+                    android:src="@drawable/ic_service_browse" />
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="14dp"
+                    android:orientation="vertical">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="@font/fredoka"
+                        android:text="Browse"
+                        android:textColor="@color/cream"
+                        android:textSize="17sp" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:fontFamily="@font/nunito"
+                        android:text="any site with a video 🌐"
+                        android:textColor="@color/lavender_mist"
+                        android:textSize="13sp" />
+                </LinearLayout>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

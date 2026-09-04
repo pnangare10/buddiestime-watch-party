@@ -35,6 +35,8 @@
     <color name="brand_netflix">#E50914</color>
     <color name="brand_prime">#00A8E1</color>
     <color name="brand_youtube">#FF0000</color>
+    <!-- Browse is not a brand; it borrows the app's own lavender so it reads as "ours". -->
+    <color name="brand_browse">#C9A8F7</color>
 
     <!-- Component colors (over-video overlays need scrims, not surfaces) -->
     <color name="badge_bg">#E62B1832</color>
