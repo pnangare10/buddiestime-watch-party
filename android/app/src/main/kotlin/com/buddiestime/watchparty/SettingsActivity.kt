@@ -31,6 +31,9 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var api: PairingApi
     private var currentRoom: RoomView? = null
 
+    /** Birthday as it was prefilled, so saving can tell "untouched" from "edited". */
+    private var loadedBirthday: String = ""
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -161,13 +164,19 @@ class SettingsActivity : AppCompatActivity() {
 
     // ── Own profile ───────────────────────────────────────────────────────────
     private fun wireProfile() {
+        val birthdayField = findViewById<TextInputEditText>(R.id.etProfileBirthday)
         val self = profileStore.selfProfile()
         self?.let {
             findViewById<TextInputEditText>(R.id.etProfileName).setText(it.displayName)
             findViewById<TextInputEditText>(R.id.etProfilePetName).setText(it.petName)
             findViewById<TextInputEditText>(R.id.etProfileTimezone).setText(it.timezone)
-            findViewById<TextInputEditText>(R.id.etProfileBirthday).setText(it.birthday)
+            birthdayField.setText(it.birthday)
         }
+        loadedBirthday = birthdayField.text?.toString()?.trim().orEmpty()
+        // Attached after the prefill on purpose: a profile saved before the mask existed
+        // may hold some other format, and reformatting it behind the user's back on open
+        // would rewrite their data without them touching anything.
+        BirthdayInput.attach(birthdayField) { birthdayField.error = null }
         findViewById<MaterialButton>(R.id.btnSaveProfile).setOnClickListener { saveProfile() }
     }
 
@@ -178,11 +187,21 @@ class SettingsActivity : AppCompatActivity() {
             Toast.makeText(this, "Name can't be empty", Toast.LENGTH_SHORT).show()
             return
         }
+        val birthdayField = findViewById<TextInputEditText>(R.id.etProfileBirthday)
+        val birthday = birthdayField.text?.toString()?.trim().orEmpty()
+        // Only judge a birthday the user actually typed. A profile saved before the mask
+        // existed can hold some other format, and refusing to save until it's fixed would
+        // block edits to the fields they *did* come here to change.
+        val birthdayEdited = birthday != loadedBirthday
+        if (birthdayEdited && birthday.isNotEmpty() && !BirthdayInput.isValid(birthday)) {
+            birthdayField.error = "Use ${BirthdayInput.PATTERN}"
+            return
+        }
         val profile = JSONObject().apply {
             put("displayName", name)
             findViewById<TextInputEditText>(R.id.etProfilePetName).text?.toString()?.trim()?.takeIf { it.isNotEmpty() }?.let { put("petName", it.capitalizeFirst()) }
             findViewById<TextInputEditText>(R.id.etProfileTimezone).text?.toString()?.trim()?.takeIf { it.isNotEmpty() }?.let { put("timezone", it) }
-            findViewById<TextInputEditText>(R.id.etProfileBirthday).text?.toString()?.trim()?.takeIf { it.isNotEmpty() }?.let { put("birthday", it) }
+            birthday.takeIf { it.isNotEmpty() }?.let { put("birthday", it) }
         }
         Log.d(TAG, "saveProfile profile=$profile")
         api.updateProfile(deviceId, JSONObject().put("profile", profile)) { ok ->

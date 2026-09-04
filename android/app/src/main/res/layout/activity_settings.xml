@@ -114,7 +114,8 @@
         android:layout_marginTop="8dp" android:hint="Timezone (e.g. Asia/Kolkata)" android:maxLines="1" />
     <com.google.android.material.textfield.TextInputEditText
         android:id="@+id/etProfileBirthday" android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:layout_marginTop="8dp" android:hint="Birthday (YYYY-MM-DD)" android:maxLines="1" />
+        android:layout_marginTop="8dp" android:hint="Birthday (YYYY-MM-DD)" android:inputType="number"
+        android:maxLines="1" />
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btnSaveProfile"
         android:layout_width="wrap_content" android:layout_height="wrap_content"
