@@ -33,6 +33,7 @@ class WelcomeSetupActivity : AppCompatActivity() {
     private lateinit var etYourName: TextInputEditText
     private lateinit var etYourPetName: TextInputEditText
     private lateinit var etYourBirthday: TextInputEditText
+    private lateinit var tilYourBirthday: TextInputLayout
     private lateinit var etPartnerName: TextInputEditText
     private lateinit var etPartnerPetName: TextInputEditText
     private lateinit var tilRoomName: TextInputLayout
@@ -59,6 +60,8 @@ class WelcomeSetupActivity : AppCompatActivity() {
         etYourName = findViewById(R.id.etYourName)
         etYourPetName = findViewById(R.id.etYourPetName)
         etYourBirthday = findViewById(R.id.etYourBirthday)
+        tilYourBirthday = findViewById(R.id.tilYourBirthday)
+        BirthdayInput.attach(etYourBirthday) { tilYourBirthday.error = null }
         etPartnerName = findViewById(R.id.etPartnerName)
         etPartnerPetName = findViewById(R.id.etPartnerPetName)
         tilRoomName = findViewById(R.id.tilRoomName)
@@ -113,10 +116,19 @@ class WelcomeSetupActivity : AppCompatActivity() {
         }
         tilRoomName.error = null
 
+        // Birthday is optional, but a half-typed one is not — dropping it silently would
+        // leave someone believing they'd saved a date the room never got.
+        val birthday = etYourBirthday.text?.toString()?.trim().orEmpty()
+        if (birthday.isNotEmpty() && !BirthdayInput.isValid(birthday)) {
+            tilYourBirthday.error = "Use ${BirthdayInput.PATTERN}"
+            return
+        }
+        tilYourBirthday.error = null
+
         val ownerProfile = JSONObject().apply {
             put("displayName", yourName)
             etYourPetName.text?.toString()?.trim()?.takeIf { it.isNotEmpty() }?.let { put("petName", it.capitalizeFirst()) }
-            etYourBirthday.text?.toString()?.trim()?.takeIf { it.isNotEmpty() }?.let { put("birthday", it) }
+            birthday.takeIf { it.isNotEmpty() }?.let { put("birthday", it) }
         }
         val partnerDraft = JSONObject().apply {
             etPartnerName.text?.toString()?.trim()?.takeIf { it.isNotEmpty() }?.let { put("displayName", it.capitalizeFirst()) }
