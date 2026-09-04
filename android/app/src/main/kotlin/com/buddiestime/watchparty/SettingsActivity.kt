@@ -31,8 +31,9 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var api: PairingApi
     private var currentRoom: RoomView? = null
 
-    /** Birthday as it was prefilled, so saving can tell "untouched" from "edited". */
+    /** Birthday as stored, so saving can tell "untouched" from "edited". */
     private var loadedBirthday: String = ""
+    private var birthdayMaskAttached = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -58,6 +59,21 @@ class SettingsActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         updateNotificationStatus()
+        attachBirthdayMask()
+    }
+
+    /**
+     * Installed here rather than in onCreate because the framework restores a frozen
+     * EditText's text *after* onCreate, and that restore fires every attached TextWatcher.
+     * A profile saved before the mask existed can hold some other format, and letting the
+     * mask run on the restore would rewrite it — mangling a value the user never touched,
+     * as the side effect of merely rotating the phone.
+     */
+    private fun attachBirthdayMask() {
+        if (birthdayMaskAttached) return
+        birthdayMaskAttached = true
+        val birthdayField = findViewById<TextInputEditText>(R.id.etProfileBirthday)
+        BirthdayInput.attach(birthdayField) { birthdayField.error = null }
     }
 
     private fun loadRoom() {
@@ -172,11 +188,10 @@ class SettingsActivity : AppCompatActivity() {
             findViewById<TextInputEditText>(R.id.etProfileTimezone).setText(it.timezone)
             birthdayField.setText(it.birthday)
         }
-        loadedBirthday = birthdayField.text?.toString()?.trim().orEmpty()
-        // Attached after the prefill on purpose: a profile saved before the mask existed
-        // may hold some other format, and reformatting it behind the user's back on open
-        // would rewrite their data without them touching anything.
-        BirthdayInput.attach(birthdayField) { birthdayField.error = null }
+        // The *stored* value, not whatever is in the field right now: this has to stay
+        // meaningful across an activity recreation, where the framework restores the field's
+        // text after onCreate has already run. See attachBirthdayMask().
+        loadedBirthday = self?.birthday?.trim().orEmpty()
         findViewById<MaterialButton>(R.id.btnSaveProfile).setOnClickListener { saveProfile() }
     }
 
@@ -206,7 +221,12 @@ class SettingsActivity : AppCompatActivity() {
         Log.d(TAG, "saveProfile profile=$profile")
         api.updateProfile(deviceId, JSONObject().put("profile", profile)) { ok ->
             runOnUiThread {
-                if (ok) profileStore.storeSelf(parseProfile(profile))
+                if (ok) {
+                    profileStore.storeSelf(parseProfile(profile))
+                    // Re-baseline, or a later revert to the original string would read as
+                    // untouched and skip validation on a genuinely fresh edit.
+                    loadedBirthday = birthday
+                }
                 Toast.makeText(this, if (ok) "Profile saved" else "Couldn't save — try again", Toast.LENGTH_SHORT).show()
             }
         }
