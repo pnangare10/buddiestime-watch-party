@@ -87,13 +87,54 @@ fun getStreamingService(name: String): StreamingService = when (name.lowercase()
     else         -> HotstarService
 }
 
-/** Every host the four fixed services are ever served from. */
-private val FIXED_SERVICE_HOSTS = setOf(
-    "hotstar.com", "jiohotstar.com",
-    "netflix.com",
-    "primevideo.com", "amazon.com", "amazon.in",
-    "youtube.com", "youtu.be", "youtube-nocookie.com",
+/** Which hosts belong to which of the four fixed services. */
+private val SERVICE_HOSTS: List<Pair<StreamingService, Set<String>>> = listOf(
+    HotstarService    to setOf("hotstar.com", "jiohotstar.com"),
+    NetflixService    to setOf("netflix.com"),
+    PrimeVideoService to setOf("primevideo.com", "amazon.com", "amazon.in"),
+    YouTubeService    to setOf("youtube.com", "youtu.be", "youtube-nocookie.com"),
 )
+
+/**
+ * Sign-in and consent hosts a fixed service legitimately sends the main frame to.
+ *
+ * These are neither a service nor "the open web". YouTube is the case that matters:
+ * signing in navigates the main frame to accounts.google.com, and without this the
+ * address bar would appear over what the user experiences as signing into YouTube, the
+ * pop-under guard would arm on an identity flow it might then swallow a hop of, and
+ * that login URL would be written to KEY_LAST_BROWSE_URL as "where Browse was".
+ *
+ * Deliberately specific hosts rather than all of google.com: google.com is also a place
+ * someone might genuinely browse to, and that should still count as the open web.
+ */
+private val NEUTRAL_HOSTS = setOf(
+    "accounts.google.com",
+    "consent.google.com",
+    "accounts.googleapis.com",
+    "signin.aws.amazon.com",
+)
+
+/** Registrable host of [url], `www.` stripped, or null when it will not parse. */
+private fun hostOf(url: String): String? = try {
+    java.net.URI(url.trim()).host?.removePrefix("www.")?.lowercase()
+} catch (e: Exception) {
+    null
+}
+
+/**
+ * Which fixed service serves [url], or null when it is out on the open web.
+ *
+ * Matching is `host == d || host.endsWith(".$d")` so a subdomain (m.youtube.com,
+ * consent.youtube.com) counts while a lookalike does not: "nothotstar.com" fails the
+ * equality test and does not end in ".hotstar.com", and "hotstar.com.evil.tld" ends in
+ * ".evil.tld" rather than ".hotstar.com".
+ */
+fun serviceForUrl(url: String): StreamingService? {
+    val host = hostOf(url) ?: return null
+    return SERVICE_HOSTS.firstOrNull { (_, hosts) ->
+        hosts.any { host == it || host.endsWith(".$it") }
+    }?.first
+}
 
 /**
  * Whether [url] is out on the open web rather than on one of the four fixed services.
@@ -117,11 +158,7 @@ private val FIXED_SERVICE_HOSTS = setOf(
  */
 fun isOpenWebUrl(url: String): Boolean {
     if (url.isBlank()) return false
-    return try {
-        val host = java.net.URI(url.trim()).host?.removePrefix("www.")?.lowercase()
-            ?: return false
-        FIXED_SERVICE_HOSTS.none { host == it || host.endsWith(".$it") }
-    } catch (e: Exception) {
-        false
-    }
+    val host = hostOf(url) ?: return false
+    if (NEUTRAL_HOSTS.any { host == it || host.endsWith(".$it") }) return false
+    return serviceForUrl(url) == null
 }

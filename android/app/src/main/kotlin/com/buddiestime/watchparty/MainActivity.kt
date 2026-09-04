@@ -692,17 +692,33 @@ class MainActivity : AppCompatActivity() {
                 lastSyncTime = time
                 lastSyncPaused = paused
                 lastSyncReceivedAt = SystemClock.elapsedRealtime()
-                if (platform.isNotEmpty() && platform != currentService?.name) {
-                    val newService = getStreamingService(platform)
-                    currentService = newService
-                    webView.settings.userAgentString = newService.userAgent
+                // Which service are we actually being pointed at?
+                //
+                // NOT `platform` on its own. The room's platform is written once, when the
+                // room is created, and never updated again (server.js), so in a long-lived
+                // paired room it is a label from months ago. Trusting it both ways round is
+                // wrong: a stale "hotstar" left a guest on the open web with no address bar,
+                // and a stale "browse" dragged someone who had deliberately picked YouTube
+                // into browse mode with a mobile UA. `videoUrl` *is* refreshed on every
+                // state-update, so when we have one it decides and `platform` is only the
+                // fallback for the case where we have no URL to go on.
+                // A blank videoUrl means the room has no content yet — so there is nothing
+                // to follow and nothing to switch to. Falling back to `platform` here is
+                // what still dragged a freshly-picked YouTube session into Browse: the
+                // room's frozen label was the only signal left, and it was months old.
+                val target: StreamingService? =
+                    if (videoUrl.isBlank()) null else serviceForUrl(videoUrl) ?: BrowseService
+
+                if (target != null && target.name != currentService?.name) {
+                    currentService = target
+                    webView.settings.userAgentString = target.userAgent
                     // A guest that started on a fixed service and is being pulled onto
                     // the open web needs the browse chrome to appear (and the viewport
                     // rules that go with it) — and the reverse on the way back.
                     webView.settings.useWideViewPort = isBrowseMode
                     webView.settings.loadWithOverviewMode = isBrowseMode
                     applyBrowseBarVisibility()
-                    Log.d(TAG, "sync: switched service → ${newService.name} browseMode=$isBrowseMode")
+                    Log.d(TAG, "sync: switched service → ${target.name} browseMode=$isBrowseMode (platform=$platform url=$videoUrl)")
                 }
                 // Prefer the JS-reported URL: currentPageUrl lags behind SPA navigation, and
                 // treating that lag as "different video" used to replace every sync with a
@@ -726,11 +742,18 @@ class MainActivity : AppCompatActivity() {
                 // guest follows only the host's first hop and then sits on a stale page.
                 // But a *repeat* of a target we already tried is the signature of a
                 // redirect chain fighting us, and that keeps the long cooldown.
+                // Chosen directly rather than via reloadCooldownFor(platform): in a room
+                // created through the Browse tile, currentService?.name is "browse" for the
+                // room's whole life, so routing the retry case through the platform name
+                // returned "browse" on BOTH branches and the long fallback never actually
+                // got selected — the retry guard was inert exactly where it was needed.
                 val retryingSameTarget = lastReloadUrl.isNotBlank() &&
                         SyncPolicy.isSameContent(videoUrl, lastReloadUrl)
-                val effectivePlatform =
-                    if (isBrowseMode && !retryingSameTarget) BrowseService.name else currentService?.name
-                val cooldown = SyncPolicy.reloadCooldownFor(effectivePlatform)
+                val cooldown = if (isBrowseMode && !retryingSameTarget) {
+                    SyncPolicy.BROWSE_RELOAD_COOLDOWN_MS
+                } else {
+                    SyncPolicy.RELOAD_COOLDOWN_MS
+                }
 
                 if (SyncPolicy.shouldReload(videoUrl, guestUrl, lastReloadAt, now, cooldown)) {
                     Log.d(TAG, "sync: host on different content → navigating (host=$videoUrl guest=$guestUrl cooldown=${cooldown}ms retry=$retryingSameTarget)")
